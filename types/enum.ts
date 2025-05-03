@@ -1,7 +1,7 @@
 export enum RoleEnum {
-    ADMIN = 'ADMIN',
-    PASSENGER = 'PASSENGER',
-    DRIVER = 'DRIVER',
+    ADMIN = 'admin',
+    CUSTOMER = 'customer',
+    DRIVER = 'driver',
 }
 export enum AvatarProviderEnum {
     GOOGLE = 'google',

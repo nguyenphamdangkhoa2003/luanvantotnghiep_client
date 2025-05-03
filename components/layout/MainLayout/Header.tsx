@@ -34,7 +34,7 @@ const Header = () => {
     id: 'user-123',
     name: 'Nguyễn Văn A',
     email: 'nguyenvana@example.com',
-    role: RoleEnum.PASSENGER,
+    role: RoleEnum.CUSTOMER,
     avatar: {
       url: 'https://randomuser.me/api/portraits/men/1.jpg',
       publicId: 'avatar-1',
