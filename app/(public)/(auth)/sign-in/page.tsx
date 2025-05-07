@@ -20,18 +20,18 @@ import { toast } from 'sonner';
 import { useState } from 'react';
 import { FcGoogle } from 'react-icons/fc';
 import { motion } from 'framer-motion';
-// import { loginMutationFn } from '@/api/auths/auth';
+import { signinMutationFn } from '@/api/auths/auth';
 
 export default function Login() {
     const router = useRouter();
     const { mutate, isPending } = useMutation({
-        // mutationFn: loginMutationFn,
+        mutationFn: signinMutationFn,
     });
 
     const [showPassword, setShowPassword] = useState(false);
 
     const formSchema = z.object({
-        email: z.string().trim().email().min(1, {
+        emailOrUsername: z.string().trim().email().min(1, {
             message: 'Email hợp lệ là bắt buộc',
         }),
         password: z.string().trim().min(1, {
@@ -42,30 +42,30 @@ export default function Login() {
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            email: '',
+            emailOrUsername: '',
             password: '',
         },
     });
 
     const onSubmit = (values: z.infer<typeof formSchema>) => {
-        // mutate(values, {
-        //     onSuccess: (response) => {
-        //         if (response.data.mfaRequired) {
-        //             router.replace(`/verify-mfa?emai=l${values.email}`);
-        //             return;
-        //         }
-        //         router.replace(`/`);
-        //     },
-        //     onError: (error) => {
-        //         toast('Error', {
-        //             description: error.message,
-        //             style: {
-        //                 background: '#ef4444',
-        //                 color: '#fff',
-        //             },
-        //         });
-        //     },
-        // });
+        mutate(values, {
+            onSuccess: (response) => {
+                if (response.data.mfaRequired) {
+                    router.replace(`/verify-mfa?email=${values.emailOrUsername}`);
+                    return;
+                }
+                router.replace(`/`);
+            },
+            onError: (error) => {
+                toast('Error', {
+                    description: error.message,
+                    style: {
+                        background: '#ef4444',
+                        color: '#fff',
+                    },
+                });
+            },
+        });
     };
 
     const handleGoogleSignIn = async () => {
@@ -122,7 +122,7 @@ export default function Login() {
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
                         <FormField
                             control={form.control}
-                            name="email"
+                            name="emailOrUsername"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel className="text-gray-700 dark:text-gray-300 text-sm font-medium">
@@ -151,7 +151,7 @@ export default function Login() {
                                             Mật khẩu
                                         </FormLabel>
                                         <Link
-                                            href={`/forgot-password?email=${form.getValues().email}`}
+                                            href={`/forgot-password?email=${form.getValues().emailOrUsername}`}
                                             className="text-xs text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                                         >
                                             Quên mật khẩu?
