@@ -1,5 +1,7 @@
 import API from '../api';
 
+type forgotPasswordEmailType = { email: string };
+type resetPasswordType = { password1: string;password2: string; resetToken: string };
 
 type signinType = {
     emailOrUsername: string;
@@ -21,3 +23,9 @@ export const signupMutationFn = async (data: signupType) =>
 
 export const verifyEmailMutationFn = async (data: verifyEmailType) =>
     await API.get(`/auth/confirm-email/${data.code}`);
+
+export const forgotPasswordMutationFn = async (data: forgotPasswordEmailType) =>
+    await API.post(`/auth/reset-password-email`, data);
+
+export const resetPasswordMutationFn = async (data: resetPasswordType) =>
+    await API.post(`/auth/reset-password`, data);

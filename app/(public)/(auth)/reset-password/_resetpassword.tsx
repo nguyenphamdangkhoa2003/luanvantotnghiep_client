@@ -18,71 +18,70 @@ import { ArrowLeft, Frown, Loader, Lock } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-// import { resetPasswordMutationFn } from "@/api/auths/auth";
+import { resetPasswordMutationFn } from "@/api/auths/auth";
 
 export default function ResetPassword() {
   const router = useRouter();
 
   const params = useSearchParams();
   const code = params.get("code");
-  const exp = Number(params.get("exp"));
-  const now = Date.now();
 
-  const isValid = code && exp && exp > now;
+  const isValid = code ;
 
   const { mutate, isPending } = useMutation({
-    // mutationFn: resetPasswordMutationFn,
+    mutationFn: resetPasswordMutationFn,
   });
 
   const formSchema = z
     .object({
-      password: z.string().trim().min(8, {
+      password1: z.string().trim().min(8, {
         message: "Mật khẩu phải có ít nhất 8 ký tự",
       }),
-      confirmPassword: z.string().trim().min(1, {
+      password2: z.string().trim().min(1, {
         message: "Vui lòng xác nhận mật khẩu",
       }),
     })
-    .refine((data) => data.password === data.confirmPassword, {
+    .refine((data) => data.password1 === data.password2, {
       message: "Mật khẩu không khớp",
-      path: ["confirmPassword"],
+      path: ["password2"],
     });
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      password: "",
-      confirmPassword: "",
+      password1: "",
+      password2: "",
     },
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    // if (!code) {
-    //   router.replace("/forgot-password?email=");
-    //   return;
-    // }
-    // const data = {
-    //   password: values.password,
-    //   verificationCode: code,
-    // };
-    // mutate(data, {
-    //   onSuccess: () => {
-    //     toast("Success",{
-    //       description: "Password reset successfully",
-    //     });
-    //     router.replace("/");
-    //   },
-    //   onError: (error) => {
-    //     console.log(error);
-    //     toast("Error",{
-    //       description: error.message,
-    //       style: {
-    //         background: "#ef4444",
-    //         color: "#fff"
-    //       },
-    //     });
-    //   },
-    // });
+    if (!code) {
+      router.replace("/forgot-password?email=");
+      return;
+    }
+    const data = {
+      password1: values.password1,
+      password2:values.password2,
+      resetToken: code,
+    };
+    mutate(data, {
+      onSuccess: () => {
+        toast("Success",{
+          description: "Password reset successfully",
+        });
+        router.replace("/sign-in");
+      },
+      onError: (error) => {
+        console.log(error);
+        toast("Error",{
+          description: error.message,
+          style: {
+            background: "#ef4444",
+            color: "#fff"
+          },
+        });
+      },
+    });
   };
 
   return (
@@ -106,16 +105,13 @@ export default function ResetPassword() {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
               Đặt lại mật khẩu mới
             </h1>
-            <p className="text-gray-500 dark:text-gray-400">
-              Mật khẩu mới phải khác với mật khẩu cũ
-            </p>
           </div>
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
-                name="password"
+                name="password1"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-gray-700 dark:text-gray-300 font-medium">
@@ -137,7 +133,7 @@ export default function ResetPassword() {
 
               <FormField
                 control={form.control}
-                name="confirmPassword"
+                name="password2"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-gray-700 dark:text-gray-300 font-medium">

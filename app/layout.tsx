@@ -6,7 +6,7 @@ import QueryProvider from "@/context/query-provider";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/provider/ThemeProvider";
 import ThemeDataProvider from "@/context/theme-data-provider";
-// import { AuthProvider } from "@/context/auth-provider";
+import { AuthProvider } from "@/context/auth-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,7 +35,7 @@ export default function RootLayout({
           flex-col`}
       >
         <QueryProvider>
-          {/* <AuthProvider> */}
+          <AuthProvider>
             <ThemeProvider
               attribute="class"
               defaultTheme="light"
@@ -44,7 +44,7 @@ export default function RootLayout({
             >
               <ThemeDataProvider>{children}</ThemeDataProvider>
             </ThemeProvider>
-          {/* </AuthProvider> */}
+          </AuthProvider>
         </QueryProvider>
         <Toaster />
       </body>

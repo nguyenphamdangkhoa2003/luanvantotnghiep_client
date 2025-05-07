@@ -24,24 +24,16 @@ import Logo from '../Logo';
 import { ThemeColorToggle } from '@/components/toggle/ThemeColorToggle';
 import { ThemeModeToggle } from '@/components/toggle/ThemeModeToggle';
 import { cn } from '@/lib/utils';
+import { useAuthContext } from '@/context/auth-provider';
 
 const Header = () => {
   const router = useRouter();
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const { user } = useAuthContext();
 
-  const mockUser = {
-    id: 'user-123',
-    name: 'Nguyễn Văn A',
-    email: 'nguyenvana@example.com',
-    role: RoleEnum.CUSTOMER,
-    avatar: {
-      url: 'https://randomuser.me/api/portraits/men/1.jpg',
-      publicId: 'avatar-1',
-    },
-  };
+  
 
-  const user = mockUser;
 
   return (
     <nav

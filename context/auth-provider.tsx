@@ -1,12 +1,12 @@
 "use client";
 
-import useAuth from "@/hooks/use-auth";
-import { AvatarProviderEnum, RoleEnum } from "@/types/enum";
-import React, { createContext, useContext } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import Cookies from "js-cookie";
-// import API from "@/api/api";
-import { useRouter } from "next/navigation"; // Thêm useRouter
+import API from "@/api/api";
+import { useRouter } from "next/navigation";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import useAuth from "@/hooks/use-auth";
+import { RoleEnum, AvatarProviderEnum } from "@/types/enum";
 
 export type UserType = {
   _id: string;
@@ -81,36 +81,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const queryClient = useQueryClient();
-  const router = useRouter(); // Sử dụng useRouter
+  const router = useRouter();
   const { data, error, isLoading, isFetching, refetch, isSuccess } = useAuth();
-  // const user = data?.data?.user;
+
+  const [user, setUser] = useState<UserType | undefined>(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser && storedUser !== 'undefined') {
+      try {
+        return JSON.parse(storedUser);
+      } catch (e) {
+        console.error('Error parsing stored user:', e);
+        localStorage.removeItem('user');
+        return undefined;
+      }
+    }
+    return undefined;
+  });
+
+  useEffect(() => {
+    if (data) {
+      setUser(data);
+      localStorage.setItem('user', JSON.stringify(data));
+    }
+  }, [data]);
 
   const logout = async () => {
-    try {
-      // const response = await API.post("/auth/logout");
-      // if (response.status !== 200) {
-      //   throw new Error("Logout failed");
-      // }
-    } catch (err) {
-      console.error("Lỗi khi đăng xuất:", err);
-    } finally {
-      Cookies.remove("accessToken", {
-        path: "/",
-      });
-      Cookies.remove("refreshToken", {
-        path: "/",
-      });
-
-      queryClient.removeQueries({ queryKey: ["authUser"] });
-
-      router.push("/login");
+  try {
+    const refreshToken = Cookies.get('refreshToken');
+    if (!refreshToken) {
+      throw new Error('Không tìm thấy refresh token');
     }
-  };
+    const response = await API.post('/auth/logout', { refreshToken });
+  } catch (err) {
+    console.error('Lỗi khi đăng xuất:', err);
+  } finally {
+    Cookies.remove('accessToken', { path: '/' });
+    Cookies.remove('refreshToken', { path: '/' });
+    localStorage.removeItem('user');
+    setUser(undefined);
+    queryClient.removeQueries({ queryKey: ['authUser'] });
+    router.push('/sign-in');
+  }
+};
 
   return (
     <AuthContext.Provider
       value={{
-        // user,
+        user,
         error,
         isLoading,
         isFetching,

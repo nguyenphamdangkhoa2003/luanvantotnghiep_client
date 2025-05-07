@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
-// import { forgotPasswordMutationFn } from "@/api/auths/auth";
+import { forgotPasswordMutationFn } from "@/api/auths/auth";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -27,7 +27,7 @@ export default function ForgotPassword() {
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const { mutate, isPending } = useMutation({
-    // mutationFn: forgotPasswordMutationFn,
+    mutationFn: forgotPasswordMutationFn,
   });
 
   const formSchema = z.object({
@@ -44,16 +44,20 @@ export default function ForgotPassword() {
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    // mutate(values, {
-    //   onSuccess: () => {
-    //     setIsSubmitted(true);
-    //   },
-    //   onError: (error) => {
-    //     toast.error("Error", {
-    //       description: error.message,
-    //     });
-    //   },
-    // });
+    mutate(values, {
+      onSuccess: () => {
+        setIsSubmitted(true);
+      },
+      onError: (error) => {
+        toast.error("Error", {
+          description: error.message,
+          style: {
+          background: '#ef4444',
+          color: '#fff',
+        },
+        });
+      },
+    });
   };
 
 

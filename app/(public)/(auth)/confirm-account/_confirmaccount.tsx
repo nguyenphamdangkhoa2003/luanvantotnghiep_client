@@ -36,7 +36,7 @@ export default function ConfirmAccount() {
                         description:
                             'Account confirmed successfully! Redirecting...',
                     });
-                    router.replace('/');
+                    router.replace('/sign-in');
                 },
                 onError: (error) => {
                     toast.error('Error', {

@@ -1,12 +1,14 @@
 "use client";
 
-// import { getUserSessionQueryFn } from "@/api/auths/auth";
 import { useQuery } from "@tanstack/react-query";
 
 const useAuth = () => {
   const query = useQuery({
     queryKey: ["authUser"],
-    // queryFn: getUserSessionQueryFn,
+    queryFn: async () => {
+      const storedUser = localStorage.getItem('user');
+      return storedUser ? JSON.parse(storedUser) : null;
+    },
     staleTime: Infinity,
   });
 

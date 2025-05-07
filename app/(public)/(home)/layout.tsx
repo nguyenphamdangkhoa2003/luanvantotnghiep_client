@@ -2,7 +2,7 @@
 import Footer from "@/components/layout/MainLayout/Footer";
 import Header from "@/components/layout/MainLayout/Header";
 import TanstackProvider from "@/components/provider/TanstackProvider";
-// import { AuthProvider } from "@/context/auth-provider";
+import { AuthProvider } from "@/context/auth-provider";
 import React from "react";
 
 function Homelayout({
@@ -13,12 +13,12 @@ function Homelayout({
   return (
     <div suppressHydrationWarning>
       <TanstackProvider>
-        {/* <AuthProvider> */}
+        <AuthProvider>
           <Header />
           <main className="flex-grow mt-10">{children}</main>
           {/* <ChatFloatButton /> */}
           <Footer />
-        {/* </AuthProvider> */}
+        </AuthProvider>
       </TanstackProvider>
     </div>
   );
