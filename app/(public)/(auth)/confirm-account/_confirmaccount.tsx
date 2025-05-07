@@ -5,7 +5,7 @@ import { Loader, MailCheck, ArrowRight } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-// import { verifyEmailMutationFn } from '@/api/auths/auth';
+import { verifyEmailMutationFn } from '@/api/auths/auth';
 
 export default function ConfirmAccount() {
     const router = useRouter();
@@ -13,44 +13,44 @@ export default function ConfirmAccount() {
     const code = params.get('code');
 
     const { mutate, isPending } = useMutation({
-        // mutationFn: verifyEmailMutationFn,
+        mutationFn: verifyEmailMutationFn,
     });
 
     const handleSubmit = (e: React.FormEvent) => {
-        // e.preventDefault();
-        // if (!code) {
-        //     toast.error('Error', {
-        //         description: 'Confirmation token not found',
-        //         style: {
-        //             background: '#ef4444',
-        //             color: '#fff',
-        //         },
-        //     });
-        //     return;
-        // }
-        // mutate(
-        //     { code },
-        //     {
-        //         onSuccess: () => {
-        //             toast.success('Success', {
-        //                 description:
-        //                     'Account confirmed successfully! Redirecting...',
-        //             });
-        //             router.replace('/');
-        //         },
-        //         onError: (error) => {
-        //             toast.error('Error', {
-        //                 description:
-        //                     error.message ||
-        //                     'Something went wrong during confirmation',
-        //                 style: {
-        //                     background: '#ef4444',
-        //                     color: '#fff',
-        //                 },
-        //             });
-        //         },
-        //     }
-        // );
+        e.preventDefault();
+        if (!code) {
+            toast.error('Error', {
+                description: 'Confirmation token not found',
+                style: {
+                    background: '#ef4444',
+                    color: '#fff',
+                },
+            });
+            return;
+        }
+        mutate(
+            { code },
+            {
+                onSuccess: () => {
+                    toast.success('Success', {
+                        description:
+                            'Account confirmed successfully! Redirecting...',
+                    });
+                    router.replace('/');
+                },
+                onError: (error) => {
+                    toast.error('Error', {
+                        description:
+                            error.message ||
+                            'Something went wrong during confirmation',
+                        style: {
+                            background: '#ef4444',
+                            color: '#fff',
+                        },
+                    });
+                },
+            }
+        );
     };
 
     return (
