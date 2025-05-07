@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Loader, MailCheck, Eye, EyeOff, User, Lock } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
-// import { registerMutationFn } from '@/api/auths/auth';
+import { signupMutationFn } from '@/api/auths/auth';
 import { toast } from 'sonner';
 import { FcGoogle } from 'react-icons/fc';
 import { motion } from 'framer-motion';
@@ -27,7 +27,7 @@ export default function SignUp() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const { mutate, isPending } = useMutation({
-        // mutationFn: registerMutationFn,
+        mutationFn: signupMutationFn,
     });
 
     const formSchema = z
@@ -38,14 +38,14 @@ export default function SignUp() {
             email: z.string().trim().email().min(1, {
                 message: 'Email is required',
             }),
-            password: z.string().trim().min(8, {
+            password1: z.string().trim().min(8, {
                 message: 'Password must be at least 8 characters',
             }),
-            confirmPassword: z.string().min(1, {
+            password2: z.string().min(1, {
                 message: 'Confirm Password is required',
             }),
         })
-        .refine((val) => val.password === val.confirmPassword, {
+        .refine((val) => val.password1 === val.password2, {
             message: 'Passwords do not match',
             path: ['confirmPassword'],
         });
@@ -55,26 +55,26 @@ export default function SignUp() {
         defaultValues: {
             name: '',
             email: '',
-            password: '',
-            confirmPassword: '',
+            password1: '',
+            password2: '',
         },
     });
 
     const onSubmit = (values: z.infer<typeof formSchema>) => {
-        // mutate(values, {
-        //     onSuccess: () => {
-        //         setIsSubmitted(true);
-        //     },
-        //     onError: (error) => {
-        //         toast.error('Registration Error', {
-        //             description: error.message,
-        //             style: {
-        //                 background: '#ef4444',
-        //                 color: '#fff',
-        //             },
-        //         });
-        //     },
-        // });
+        mutate(values, {
+            onSuccess: () => {
+                setIsSubmitted(true);
+            },
+            onError: (error) => {
+                toast.error('Registration Error', {
+                    description: error.message,
+                    style: {
+                        background: '#ef4444',
+                        color: '#fff',
+                    },
+                });
+            },
+        });
         setIsSubmitted(true);
     };
 
@@ -186,7 +186,7 @@ export default function SignUp() {
 
                             <FormField
                                 control={form.control}
-                                name="password"
+                                name="password1"
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel className="text-gray-700 dark:text-gray-300 text-sm font-medium">
@@ -221,7 +221,7 @@ export default function SignUp() {
 
                             <FormField
                                 control={form.control}
-                                name="confirmPassword"
+                                name="password2"
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel className="text-gray-700 dark:text-gray-300 text-sm font-medium">
