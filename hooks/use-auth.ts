@@ -1,18 +1,16 @@
-"use client";
+'use client'
 
-import { useQuery } from "@tanstack/react-query";
+import { getUserProfileQueryFn } from '@/api/auths/auth'
+import { useQuery } from '@tanstack/react-query'
 
 const useAuth = () => {
   const query = useQuery({
-    queryKey: ["authUser"],
-    queryFn: async () => {
-      const storedUser = localStorage.getItem('user');
-      return storedUser ? JSON.parse(storedUser) : null;
-    },
+    queryKey: ['authUser'],
+    queryFn: getUserProfileQueryFn,
     staleTime: Infinity,
-  });
+  })
 
-  return query;
-};
+  return query
+}
 
-export default useAuth;
+export default useAuth

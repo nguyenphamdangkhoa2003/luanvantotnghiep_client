@@ -28,10 +28,6 @@ const LogoutDialog = (props: {
     setIsPending(true);
     try {
       await logout();
-      toast.success('Đăng xuất thành công', {
-        position: 'top-right',
-        duration: 2000,
-      });
       router.refresh();
     } catch (error: any) {
       console.error('Logout error:', error);

@@ -1,9 +1,9 @@
-'use client';
+'use client'
 
-import * as React from 'react';
-import { useThemeContext } from '@/context/theme-data-provider';
-import { useTheme } from 'next-themes';
-import { cn } from '@/lib/utils';
+import * as React from 'react'
+import { useThemeContext } from '@/context/theme-data-provider'
+import { useTheme } from 'next-themes'
+import { cn } from '@/lib/utils'
 import {
   DropdownMenuItem,
   DropdownMenuPortal,
@@ -11,34 +11,61 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-} from '@/components/ui/dropdown-menu';
-import { ThemeColors } from '@/types/theme-types';
-import { Check } from 'lucide-react';
+} from '@/components/ui/dropdown-menu'
+import { ThemeColors } from '@/types/theme-types'
+import { Check } from 'lucide-react'
 
 interface IThemeColor {
-  name: string;
-  light: string;
-  dark: string;
-  textColor: string;
+  name: string
+  light: string
+  dark: string
+  textColor: string
 }
 
 const availableThemeColors: IThemeColor[] = [
-  { name: 'Blue', light: 'bg-blue-600', dark: 'bg-blue-700', textColor: 'text-blue-600' },
-  { name: 'Zinc', light: 'bg-zinc-900', dark: 'bg-zinc-700', textColor: 'text-zinc-900' },
-  { name: 'Rose', light: 'bg-rose-600', dark: 'bg-rose-700', textColor: 'text-rose-600' },
-  { name: 'Green', light: 'bg-green-600', dark: 'bg-green-500', textColor: 'text-green-600' },
-  { name: 'Orange', light: 'bg-orange-500', dark: 'bg-orange-700', textColor: 'text-orange-500' },
-];
+  {
+    name: 'Blue',
+    light: 'bg-blue-600',
+    dark: 'bg-blue-700',
+    textColor: 'text-blue-600',
+  },
+  {
+    name: 'Zinc',
+    light: 'bg-zinc-900',
+    dark: 'bg-zinc-700',
+    textColor: 'text-zinc-900',
+  },
+  {
+    name: 'Rose',
+    light: 'bg-rose-600',
+    dark: 'bg-rose-700',
+    textColor: 'text-rose-600',
+  },
+  {
+    name: 'Green',
+    light: 'bg-green-600',
+    dark: 'bg-green-500',
+    textColor: 'text-green-600',
+  },
+  {
+    name: 'Orange',
+    light: 'bg-orange-500',
+    dark: 'bg-orange-700',
+    textColor: 'text-orange-500',
+  },
+]
 
 interface ThemeColorToggleProps {
-  mobile?: boolean;
+  mobile?: boolean
 }
 
 export function ThemeColorToggle({ mobile = false }: ThemeColorToggleProps) {
-  const { themeColor, setThemeColor } = useThemeContext();
-  const { theme } = useTheme();
+  const { themeColor, setThemeColor } = useThemeContext()
+  const { theme } = useTheme()
 
-  const selectedColor = availableThemeColors.find((cl) => cl.name === themeColor) || availableThemeColors[1];
+  const selectedColor =
+    availableThemeColors.find((cl) => cl.name === themeColor) ||
+    availableThemeColors[1]
 
   return (
     <DropdownMenuSub>
@@ -58,7 +85,9 @@ export function ThemeColorToggle({ mobile = false }: ThemeColorToggleProps) {
           />
           <span>Màu sắc</span>
         </div>
-        {mobile && <span className={selectedColor.textColor}>{selectedColor.name}</span>}
+        {mobile && (
+          <span className={selectedColor.textColor}>{selectedColor.name}</span>
+        )}
       </DropdownMenuSubTrigger>
       <DropdownMenuPortal>
         <DropdownMenuSubContent
@@ -97,5 +126,5 @@ export function ThemeColorToggle({ mobile = false }: ThemeColorToggleProps) {
         </DropdownMenuSubContent>
       </DropdownMenuPortal>
     </DropdownMenuSub>
-  );
+  )
 }

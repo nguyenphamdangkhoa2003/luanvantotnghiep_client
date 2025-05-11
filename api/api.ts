@@ -1,90 +1,76 @@
-import axios from "axios";
+import axios from 'axios'
+import Cookies from 'js-cookie'
 
 const options = {
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
   withCredentials: true,
   timeout: 10000,
-};
+}
 
-const API = axios.create(options);
-const APIRefresh = axios.create(options);
+const API = axios.create(options)
+const APIRefresh = axios.create(options)
 
-let isRefreshing = false;
-let refreshSubscribers: any[] = [];
+let isRefreshing = false
+let refreshSubscribers: any[] = []
 
 const subscribeTokenRefresh = (cb: any) => {
-  refreshSubscribers.push(cb);
-};
+  refreshSubscribers.push(cb)
+}
 
 const onRefreshed = () => {
-  refreshSubscribers.forEach((cb) => cb());
-  refreshSubscribers = [];
-};
+  refreshSubscribers.forEach((cb) => cb())
+  refreshSubscribers = []
+}
 
-// Interceptor cho APIRefresh với xử lý lỗi
+
+// Interceptor for APIRefresh with error handling
 APIRefresh.interceptors.response.use(
   (response) => response,
-  (error) => Promise.reject(error),
-);
+  (error) => Promise.reject(error)
+)
 
 API.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const { config, response } = error;
-    const { data, status } = response || {};
-
-    // Kiểm tra lỗi 401 và thông điệp liên quan đến token
+    const { config, response } = error
+    const { data, status } = response || {}
     if (
-      status === 401 &&
+      (status === 401 || status === 400) &&
       data?.message &&
       [
-        "Người dùng chưa được xác thực",
-        "Token không hợp lệ",
-        "Refresh token không được cung cấp",
+        'Token đã hết hạn',
+        'Token không hợp lệ',
+        'Refresh token không được cung cấp',
       ].includes(data.message)
     ) {
       if (!isRefreshing) {
-        isRefreshing = true;
+        isRefreshing = true
 
         try {
-          // Lấy refresh token từ cookie hoặc local storage (tùy cách bạn lưu)
-          const refreshToken = localStorage.getItem("refreshToken") || "";
-
-          if (!refreshToken) {
-            throw new Error("Không tìm thấy refresh token");
+          await APIRefresh.post('/auth/refresh-token')
+          onRefreshed()
+          isRefreshing = false
+          return API(config)
+        } catch (refreshError: any) {
+          console.error('Lỗi khi làm mới token:', refreshError)
+          isRefreshing = false
+          onRefreshed()
+          if (refreshError.response?.status === 401) {
+            Cookies.remove('refresh')
           }
-
-          // Gọi endpoint refresh-token với refreshToken trong body
-          await APIRefresh.post("/auth/refresh-token", { refreshToken });
-
-          // Thông báo refresh hoàn tất
-          onRefreshed();
-          isRefreshing = false;
-
-          // Thử lại request ban đầu
-          return API(config);
-        } catch (refreshError) {
-          console.error("Lỗi khi làm mới token:", refreshError);
-          isRefreshing = false;
-          onRefreshed();
-
-          // Chuyển hướng đến trang login nếu refresh thất bại
-          window.location.href = "/";
-          return Promise.reject(refreshError);
+          return Promise.reject(refreshError)
         }
       }
-
-      // Xếp hàng request để thử lại sau khi refresh
       return new Promise((resolve) => {
         subscribeTokenRefresh(() => {
-          resolve(API(config));
-        });
-      });
+          resolve(API(config))
+        })
+      })
     }
 
-    return Promise.reject(data || error);
-  },
-);
+    return Promise.reject(data || error)
+  }
+)
 
-export default API;
-export { APIRefresh };
+export default API
+export { APIRefresh }

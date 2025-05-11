@@ -32,9 +32,6 @@ const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { user } = useAuthContext();
 
-  
-
-
   return (
     <nav
       className={cn(
@@ -125,7 +122,7 @@ const Header = () => {
                     >
                       {user?.avatar ? (
                         <Image
-                          src={user.avatar.url}
+                          src={user.avatar}
                           width={36}
                           height={36}
                           alt="Avatar"
@@ -342,7 +339,7 @@ const Header = () => {
                     >
                       {user?.avatar ? (
                         <Image
-                          src={user.avatar.url}
+                          src={user.avatar}
                           width={36}
                           height={36}
                           alt="Avatar"
