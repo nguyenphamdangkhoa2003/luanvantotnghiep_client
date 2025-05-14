@@ -15,8 +15,11 @@ export type UserType = {
   givenName: string
   familyName: string
   password: string
+  phoneNumber: string
+  dateOfBirth: string
   isEmailVerified: boolean
   email: string
+  bio: string
   passwordEnabled: boolean
   deleteSelfEnabled: boolean
   hasImage: boolean
@@ -25,11 +28,6 @@ export type UserType = {
   updatedAt: Date
   banned: boolean
   lastSignInAt: Date
-  userPreferences: {
-    enable2FA: boolean
-    emailNotification: boolean
-    twoFactorSecret?: string
-  }
   externalAccount?: {
     provider: 'google'
     id: string
@@ -87,8 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         '/auth/logout',
       )
       if (response.data.message === 'Đăng xuất thành công') {
-        Cookies.remove('access_token', { path: '/' })
-        Cookies.remove('refresh', { path: '/' })
+        localStorage.removeItem('loginSuccess')
         queryClient.removeQueries({ queryKey: ['authUser'] })
         router.push('/sign-in')
       }

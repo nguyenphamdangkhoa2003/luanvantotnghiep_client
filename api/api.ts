@@ -36,12 +36,7 @@ API.interceptors.response.use(
     const { data, status } = response || {}
     if (
       (status === 401 || status === 400) &&
-      data?.message &&
-      [
-        'Token đã hết hạn',
-        'Token không hợp lệ',
-        'Refresh token không được cung cấp',
-      ].includes(data.message)
+      data?.message === "Cookie 'access_token' không tồn tại"
     ) {
       if (!isRefreshing) {
         isRefreshing = true

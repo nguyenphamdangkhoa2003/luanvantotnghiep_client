@@ -22,20 +22,17 @@ import { useState } from 'react'
 import { FcGoogle } from 'react-icons/fc'
 import { motion } from 'framer-motion'
 import { signinMutationFn, googleSignInMutationFn } from '@/api/auths/auth'
-import { useAuthContext } from '@/context/auth-provider'
 
 export default function Login() {
   const router = useRouter()
-  const { refetch } = useAuthContext()
   const [showPassword, setShowPassword] = useState(false)
 
   const { mutate: signin, isPending: isSigninPending } = useMutation({
     mutationFn: signinMutationFn,
     onSuccess: (response) => {
-      refetch()
       form.reset()
       setShowPassword(false)
-      router.replace(`/`)
+      router.replace(`/?login=success`)
     },
     onError: (error: any) => {
       console.error('Login error:', error)
