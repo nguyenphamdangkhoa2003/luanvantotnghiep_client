@@ -19,6 +19,7 @@ import { SecurityTab } from './_components/SecurityTab'
 import { Skeleton } from '@/components/ui/skeleton'
 import { updateUserAvatarMutationFn } from '@/api/users/user'
 import { useMutation, useQuery } from '@tanstack/react-query'
+import { DriverTab } from './_components/DriverTab'
 import { getUserProfileQueryFn } from '@/api/auths/auth'
 
 export default function UserProfilePage() {
@@ -323,6 +324,7 @@ export default function UserProfilePage() {
           />
         </TabsContent>
         <TabsContent value="driver">
+          <DriverTab user={currentUser} refetchData={refetch} />
         </TabsContent>
       </Tabs>
       <PasswordDialog
