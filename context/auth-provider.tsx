@@ -9,55 +9,52 @@ import API from '@/api/api'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
-export type UserType = {
+export interface UserType {
   _id: string
-  name: string
-  givenName: string
-  familyName: string
-  password: string
-  phoneNumber: string
-  dateOfBirth: string
-  isEmailVerified: boolean
+  username: string
   email: string
-  bio: string
-  passwordEnabled: boolean
-  deleteSelfEnabled: boolean
-  hasImage: boolean
-  avatar: string
-  createdAt: Date
-  updatedAt: Date
-  banned: boolean
-  lastSignInAt: Date
-  externalAccount?: {
-    provider: 'google'
-    id: string
-    name: string
-    emails: { value: string; type?: string }[]
-    picture: string
+  name: string
+  role: string
+  isEmailVerified: boolean
+  isOnline: boolean
+  oauthProviders: string[]
+  credentials: {
+    version: number
+    lastPassword: string
+    passwordUpdatedAt: number
+    updatedAt: number
   }
-  role: RoleEnum
-  passwordEnable: boolean
-  identityVerified: string
-  driverInfo: {
-    idPortraitImage?: string
-    extractedIdNumber?: string
-    extractedFullName?: string
-    extractedDob?: string
-    extractedGender?: string
-    extractedAddress?: string
-    extractedLicenseNumber?: string
-    extractedLicenseClass?: string
-    extractedLicenseIssueDate?: string
-    extractedLicenseExpiryDate?: string
-    extractedLicensePlace?: string
-    extractedPlateNumber?: string
-    extractedVehicleOwner?: string
-    extractedVehicleType?: string
-    extractedVehicleBrand?: string
-    extractedVehicleChassisNumber?: string
-    extractedVehicleEngineNumber?: string
-    extractedVehicleRegistrationDate?: string
+  createdAt: string
+  updatedAt: string
+  vehicles: any[]
+  paymentMethods: {
+    _id: string
+    type: string
+    details: {
+      provider: string
+      token: string
+      last4: string
+    }
+    isVerified: boolean
+  }[]
+  __v?: number
+  avatar?: string
+  identityDocument?: {
+    documentNumber: string
+    frontImage: string
+    backImage: string
+    verificationStatus: string
+    _id: string
   }
+  driverLicense?: {
+    licenseNumber: string
+    frontImage: string
+    backImage: string
+    verificationStatus: string
+    _id: string
+  }
+  dateOfBirth?: string
+  phoneNumber?: string 
 }
 
 type AuthContextType = {

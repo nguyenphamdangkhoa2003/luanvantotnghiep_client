@@ -60,7 +60,7 @@ export function NavUser({ user, onLogout }: NavUserProps) {
             >
               <Avatar className="h-8 w-8 rounded-lg transition-transform duration-200 ">
                 {user.avatar && (
-                  <AvatarImage src={user.avatar.url} alt={user.name || ""} />
+                  <AvatarImage src={user.avatar} alt={user.name || ""} />
                 )}
                 <AvatarFallback className="rounded-lg bg-primary/10 text-primary">
                   {getInitials(user.name)}
@@ -86,8 +86,8 @@ export function NavUser({ user, onLogout }: NavUserProps) {
             <DropdownMenuLabel className="p-2 font-normal hover:bg-transparent">
               <div className="flex items-center gap-3">
                 <Avatar className="h-10 w-10 rounded-lg transition-transform duration-200 hover:scale-105">
-                  {user.avatar?.url && (
-                    <AvatarImage src={user.avatar.url} alt={user.name || ""} />
+                  {user.avatar && (
+                    <AvatarImage src={user.avatar} alt={user.name || ""} />
                   )}
                   <AvatarFallback className="rounded-lg bg-primary/10 text-primary">
                     {getInitials(user.name)}
