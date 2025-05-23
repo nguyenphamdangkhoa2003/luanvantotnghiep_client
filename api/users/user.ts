@@ -42,6 +42,11 @@ type ApproveVehicleType = {
   rejectionReason?: string
 }
 
+// Get detail users (ADMIN only)
+export const getUserByIdQueryFn = async (userId: string) => {
+  return await API.get(`/users/${userId}`)
+}
+
 // Get all users (ADMIN only)
 export const getUsersQueryFn = async () => {
   return await API.get('/users')
