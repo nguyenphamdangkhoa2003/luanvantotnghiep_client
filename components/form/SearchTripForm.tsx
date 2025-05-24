@@ -265,7 +265,6 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
         date: data.date,
         seatsAvailable: data.passengers,
       }
-
       // Call API to search routes
       const response = await searchRoutesQueryFn(searchData)
       const searchResults = response.data

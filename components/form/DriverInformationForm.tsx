@@ -60,13 +60,13 @@ type DriverInfoFormProps = {
       documentNumber: string
       frontImage: string
       backImage: string
-      verificationStatus: 'pending' | 'verified' | 'rejected'
+      verificationStatus: 'pending' | 'approved' | 'rejected'
     }
     driverLicense?: {
       licenseNumber: string
       frontImage: string
       backImage: string
-      verificationStatus: 'pending' | 'verified' | 'rejected'
+      verificationStatus: 'pending' | 'approved' | 'rejected'
     }
   }
   refetch: () => Promise<void>
@@ -175,34 +175,34 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
   const isSubmittingLicense = uploadLicenseMutation.isPending;
 
   const renderVerificationStatus = (
-    status: 'pending' | 'verified' | 'rejected'
+    status: 'pending' | 'approved' | 'rejected'
   ) => {
     switch (status) {
-      case 'verified':
+      case 'approved':
         return (
           <Badge className="bg-green-100 text-green-800">
             <Check className="w-4 h-4 mr-1" />
             Đã xác minh
           </Badge>
-        );
+        )
       case 'pending':
         return (
           <Badge className="bg-yellow-100 text-yellow-800">
             <Clock className="w-4 h-4 mr-1" />
             Đang chờ xác minh
           </Badge>
-        );
+        )
       case 'rejected':
         return (
           <Badge className="bg-red-100 text-red-800">
             <AlertCircle className="w-4 h-4 mr-1" />
             Xác minh thất bại
           </Badge>
-        );
+        )
       default:
-        return null;
+        return null
     }
-  };
+  }
 
   return (
     <Form {...form}>
@@ -239,7 +239,7 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                       disabled={
                         isSubmittingIdentity ||
                         userData.identityDocument?.verificationStatus ===
-                          'verified'
+                          'approved'
                       }
                       className="bg-white border-gray-300 focus:border-primary focus:ring-primary"
                     />
@@ -272,7 +272,7 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                                 : 'border-gray-300 hover:border-primary bg-gray-50'
                             } ${
                               userData.identityDocument?.verificationStatus ===
-                              'verified'
+                              'approved'
                                 ? 'pointer-events-none'
                                 : ''
                             }`}
@@ -338,7 +338,7 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                               disabled={
                                 isSubmittingIdentity ||
                                 userData.identityDocument
-                                  ?.verificationStatus === 'verified'
+                                  ?.verificationStatus === 'approved'
                               }
                             />
                           </label>
@@ -372,7 +372,7 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                                 : 'border-gray-300 hover:border-primary bg-gray-50'
                             } ${
                               userData.identityDocument?.verificationStatus ===
-                              'verified'
+                              'approved'
                                 ? 'pointer-events-none'
                                 : ''
                             }`}
@@ -438,7 +438,7 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                               disabled={
                                 isSubmittingIdentity ||
                                 userData.identityDocument
-                                  ?.verificationStatus === 'verified'
+                                  ?.verificationStatus === 'approved'
                               }
                             />
                           </label>
@@ -452,7 +452,7 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
             </div>
 
             {(!userData.identityDocument ||
-              userData.identityDocument.verificationStatus !== 'verified') && (
+              userData.identityDocument.verificationStatus !== 'approved') && (
               <div className="flex justify-end pt-4">
                 <Button
                   type="button"
@@ -506,7 +506,7 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                       disabled={
                         isSubmittingLicense ||
                         userData.driverLicense?.verificationStatus ===
-                          'verified'
+                          'approved'
                       }
                       className="bg-white border-gray-300 focus:border-primary focus:ring-primary"
                     />
@@ -539,7 +539,7 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                                 : 'border-gray-300 hover:border-primary bg-gray-50'
                             } ${
                               userData.driverLicense?.verificationStatus ===
-                              'verified'
+                              'approved'
                                 ? 'pointer-events-none'
                                 : ''
                             }`}
@@ -605,7 +605,7 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                               disabled={
                                 isSubmittingLicense ||
                                 userData.driverLicense?.verificationStatus ===
-                                  'verified'
+                                  'approved'
                               }
                             />
                           </label>
@@ -639,7 +639,7 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                                 : 'border-gray-300 hover:border-primary bg-gray-50'
                             } ${
                               userData.driverLicense?.verificationStatus ===
-                              'verified'
+                              'approved'
                                 ? 'pointer-events-none'
                                 : ''
                             }`}
@@ -705,7 +705,7 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                               disabled={
                                 isSubmittingLicense ||
                                 userData.driverLicense?.verificationStatus ===
-                                  'verified'
+                                  'approved'
                               }
                             />
                           </label>
@@ -719,7 +719,7 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
             </div>
 
             {(!userData.driverLicense ||
-              userData.driverLicense.verificationStatus !== 'verified') && (
+              userData.driverLicense.verificationStatus !== 'approved') && (
               <div className="flex justify-end pt-4">
                 <Button
                   type="button"

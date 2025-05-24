@@ -26,6 +26,7 @@ type VerifyDocumentType = {
 type CreateVehicleType = {
   licensePlate: string
   model: string
+  seats: number // Added seats
   registrationDocument: File
   insuranceDocument?: File
 }
@@ -33,6 +34,7 @@ type CreateVehicleType = {
 type UpdateVehicleType = {
   licensePlate?: string
   model?: string
+  seats?: number // Added seats for consistency
   registrationDocument?: File
   insuranceDocument?: File
 }
@@ -102,16 +104,13 @@ export const addVehicleMutationFn = async (data: CreateVehicleType) => {
   const formData = new FormData()
   formData.append('licensePlate', data.licensePlate)
   formData.append('model', data.model)
+  formData.append('seats', String(data.seats)) // Added seats
   formData.append('registrationDocument', data.registrationDocument)
   if (data.insuranceDocument) {
     formData.append('insuranceDocument', data.insuranceDocument)
   }
 
-  return await API.post('/users/me/vehicles', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  })
+  return await API.post('/users/me/vehicles', formData) // Removed Content-Type
 }
 
 // Get user vehicles (DRIVER only)
