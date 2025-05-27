@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Calendar } from '@/components/ui/calendar'
-import { Clock, MapPin, Users, Route } from 'lucide-react'
+import { Clock, MapPin, Users, Route, X, Plus } from 'lucide-react'
 import { format, startOfToday } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { Calendar as CalendarIcon } from 'lucide-react'
@@ -34,6 +34,7 @@ import { UserLocationContext } from '@/hooks/use-user-location-context'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { createRouteMutationFn } from '@/api/routes/route'
+
 const routeSchema = z.object({
   departurePoint: z.string().min(1, 'Điểm đi là bắt buộc'),
   destination: z.string().min(1, 'Điểm đến là bắt buộc'),
@@ -78,6 +79,17 @@ type Suggestion = {
   coordinates: { lng: number; lat: number }
 }
 
+type Waypoint = {
+  id: string
+  name: string
+  coordinates: { lng: number; lat: number } | null
+}
+
+type MapRef = {
+  lastCoords: { lng: number; lat: number }[] | null
+  fitBounds: (bounds: mapboxgl.LngLatBounds, options?: any) => void
+}
+
 export default function RegistrationForm() {
   const userLocationContext = useContext(UserLocationContext)
 
@@ -100,7 +112,7 @@ export default function RegistrationForm() {
     defaultValues: {
       departurePoint: '',
       destination: '',
-      departureDate: new Date(), // Allow today
+      departureDate: new Date(),
       departureTime: '08:00',
       availableSeats: 1,
       price: 10000,
@@ -131,15 +143,25 @@ export default function RegistrationForm() {
   const [departureName, setDepartureName] = useState<string>('')
   const [destinationName, setDestinationName] = useState<string>('')
 
+  // State for waypoints
+  const [waypoints, setWaypoints] = useState<Waypoint[]>([])
+  const [newWaypointQuery, setNewWaypointQuery] = useState('')
+  const [newWaypointSuggestions, setNewWaypointSuggestions] = useState<
+    Suggestion[]
+  >([])
+  const [isAddingWaypoint, setIsAddingWaypoint] = useState(false)
+  const [isLoadingWaypoint, setIsLoadingWaypoint] = useState(false)
+
   // State for map and routes
   const [route, setRoute] = useState<any[]>([])
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const mapRef = useRef<any>(null)
+  const mapRef = useRef<MapRef>({ lastCoords: null })
 
   // Ref for debounce timers
   const departureTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const destinationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const waypointTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
 
@@ -179,27 +201,23 @@ export default function RegistrationForm() {
   }
 
   // Fetch routes from Mapbox Directions API
-  const fetchRoute = async (
-    start: { lng: number; lat: number },
-    end: { lng: number; lat: number }
-  ) => {
+  const fetchRoute = async (coords: { lng: number; lat: number }[]) => {
     if (
-      !start ||
-      !end ||
-      isNaN(start.lng) ||
-      isNaN(start.lat) ||
-      isNaN(end.lng) ||
-      isNaN(end.lat)
+      coords.length < 2 ||
+      coords.some((coord) => !coord || isNaN(coord.lng) || isNaN(coord.lat))
     ) {
-      console.error('Invalid coordinates:', { start, end })
+      console.error('Invalid coordinates:', coords)
       setRoute([])
       setSelectedRouteIndex(0)
       return
     }
 
     try {
+      const coordinates = coords
+        .map((coord) => `${coord.lng},${coord.lat}`)
+        .join(';')
       const response = await fetch(
-        `https://api.mapbox.com/directions/v5/mapbox/driving/${start.lng},${start.lat};${end.lng},${end.lat}?geometries=geojson&access_token=${MAPBOX_TOKEN}&alternatives=true&annotations=distance,duration,congestion&overview=full`
+        `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${MAPBOX_TOKEN}&alternatives=true&annotations=distance,duration,congestion&overview=full`
       )
       const data = await response.json()
 
@@ -214,17 +232,29 @@ export default function RegistrationForm() {
       }
 
       setRoute(data.routes)
-      setSelectedRouteIndex(0)
+      if (selectedRouteIndex >= data.routes.length) {
+        setSelectedRouteIndex(0)
+      }
 
-      // Set waypoint names
       if (data.waypoints && data.waypoints.length >= 2) {
         setDepartureName(data.waypoints[0].name || watch('departurePoint'))
-        setDestinationName(data.waypoints[1].name || watch('destination'))
+        setDestinationName(
+          data.waypoints[data.waypoints.length - 1].name || watch('destination')
+        )
         setValue(
           'departurePoint',
           data.waypoints[0].name || watch('departurePoint')
         )
-        setValue('destination', data.waypoints[1].name || watch('destination'))
+        setValue(
+          'destination',
+          data.waypoints[data.waypoints.length - 1].name || watch('destination')
+        )
+
+        const updatedWaypoints = waypoints.map((wp, index) => ({
+          ...wp,
+          name: data.waypoints[index + 1]?.name || wp.name,
+        }))
+        setWaypoints(updatedWaypoints)
       }
 
       if (mapRef.current) {
@@ -251,6 +281,44 @@ export default function RegistrationForm() {
     }
   }
 
+  // Add new waypoint
+  const addWaypoint = () => {
+    if (waypoints.length >= 23) {
+      toast('Lỗi', {
+        description: 'Số điểm dừng tối đa là 23!',
+        style: { background: '#ff3333', color: '#fff' },
+      })
+      return
+    }
+    setIsAddingWaypoint(true)
+  }
+
+  // Cancel adding waypoint
+  const cancelAddWaypoint = () => {
+    setIsAddingWaypoint(false)
+    setNewWaypointQuery('')
+    setNewWaypointSuggestions([])
+  }
+
+  // Remove waypoint
+  const removeWaypoint = (id: string) => {
+    setWaypoints(waypoints.filter((wp) => wp.id !== id))
+  }
+
+  // Select waypoint from suggestions
+  const selectWaypoint = (suggestion: Suggestion) => {
+    const newWaypoint = {
+      id: `wp-${Date.now()}`,
+      name: suggestion.description,
+      coordinates: suggestion.coordinates,
+    }
+    setWaypoints([...waypoints, newWaypoint])
+    setIsAddingWaypoint(false)
+    setNewWaypointQuery('')
+    setNewWaypointSuggestions([])
+  }
+
+  // Fetch suggestions for departure
   useEffect(() => {
     if (departureTimeoutRef.current) {
       clearTimeout(departureTimeoutRef.current)
@@ -270,7 +338,7 @@ export default function RegistrationForm() {
           .finally(() => {
             setIsLoadingDeparture(false)
           })
-      }, 600)
+      }, 400)
     } else {
       setDepartureSuggestions([])
       setIsLoadingDeparture(false)
@@ -283,6 +351,7 @@ export default function RegistrationForm() {
     }
   }, [departureQuery])
 
+  // Fetch suggestions for destination
   useEffect(() => {
     if (destinationTimeoutRef.current) {
       clearTimeout(destinationTimeoutRef.current)
@@ -302,7 +371,7 @@ export default function RegistrationForm() {
           .finally(() => {
             setIsLoadingDestination(false)
           })
-      }, 600)
+      }, 400)
     } else {
       setDestinationSuggestions([])
       setIsLoadingDestination(false)
@@ -315,16 +384,71 @@ export default function RegistrationForm() {
     }
   }, [destinationQuery])
 
+  // Fetch suggestions for new waypoint
+  useEffect(() => {
+    if (!newWaypointQuery || newWaypointQuery.length < 2) {
+      setNewWaypointSuggestions([])
+      setIsLoadingWaypoint(false)
+      return
+    }
+
+    if (waypointTimeoutRef.current) {
+      clearTimeout(waypointTimeoutRef.current)
+    }
+
+    setIsLoadingWaypoint(true)
+    waypointTimeoutRef.current = setTimeout(() => {
+      fetchSuggestions(newWaypointQuery)
+        .then((data) => {
+          setNewWaypointSuggestions(data)
+        })
+        .catch((error) => {
+          console.error('Error fetching waypoint suggestions:', error)
+          setNewWaypointSuggestions([])
+        })
+        .finally(() => {
+          setIsLoadingWaypoint(false)
+        })
+    }, 400)
+
+    return () => {
+      if (waypointTimeoutRef.current) {
+        clearTimeout(waypointTimeoutRef.current)
+      }
+    }
+  }, [newWaypointQuery])
+
+  // Fetch route when coordinates change
   useEffect(() => {
     if (departureCoords && destinationCoords) {
-      fetchRoute(departureCoords, destinationCoords)
+      const coords = [
+        departureCoords,
+        ...waypoints
+          .map((wp) => wp.coordinates)
+          .filter((c): c is { lng: number; lat: number } => !!c),
+        destinationCoords,
+      ]
+      const coordsString = JSON.stringify(coords)
+      if (coordsString !== JSON.stringify(mapRef.current?.lastCoords)) {
+        mapRef.current = { ...mapRef.current, lastCoords: coords }
+        fetchRoute(coords)
+      }
+    } else {
+      setRoute([])
+      setSelectedRouteIndex(0)
     }
-  }, [departureCoords, destinationCoords])
+  }, [departureCoords, destinationCoords, waypoints])
 
   const onSubmit = async (data: RouteFormData) => {
-    if (route.length === 0 || !departureCoords || !destinationCoords) {
+    if (
+      route.length === 0 ||
+      !departureCoords ||
+      !destinationCoords ||
+      waypoints.some((wp) => !wp.coordinates)
+    ) {
       toast('Lỗi', {
-        description: 'Vui lòng chọn điểm đi, điểm đến và tuyến đường hợp lệ!',
+        description:
+          'Vui lòng chọn điểm đi, điểm đến, và các điểm dừng hợp lệ!',
         style: { background: '#ff3333', color: '#fff' },
       })
       return
@@ -336,7 +460,8 @@ export default function RegistrationForm() {
       if (
         !selectedRoute.geometry ||
         !selectedRoute.distance ||
-        !selectedRoute.duration
+        !selectedRoute.duration ||
+        !selectedRoute.legs
       ) {
         throw new Error('Dữ liệu tuyến đường không đầy đủ')
       }
@@ -344,6 +469,45 @@ export default function RegistrationForm() {
       const startDate = new Date(data.departureDate)
       const [hours, minutes] = data.departureTime.split(':')
       startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0)
+
+      // Construct waypoints from API response
+      const apiWaypoints = selectedRoute.waypoints || []
+      let cumulativeDistance = 0
+      const routeWaypoints = [
+        {
+          distance: 0,
+          name: departureName || data.departurePoint,
+          location: {
+            lng: departureCoords.lng,
+            lat: departureCoords.lat,
+          },
+        },
+        ...waypoints.map((wp, index) => {
+          const legDistance = selectedRoute.legs[index]?.distance || 0
+          cumulativeDistance += legDistance
+          return {
+            distance: cumulativeDistance,
+            name:
+              wp.name ||
+              apiWaypoints[index + 1]?.name ||
+              `Điểm dừng ${index + 1}`,
+            location: wp.coordinates
+              ? { lng: wp.coordinates.lng, lat: wp.coordinates.lat }
+              : {
+                  lng: apiWaypoints[index + 1]?.location[0] || 0,
+                  lat: apiWaypoints[index + 1]?.location[1] || 0,
+                },
+          }
+        }),
+        {
+          distance: selectedRoute.distance,
+          name: destinationName || data.destination,
+          location: {
+            lng: destinationCoords.lng,
+            lat: destinationCoords.lat,
+          },
+        },
+      ]
 
       const routeData = {
         name: `${departureName || data.departurePoint} - ${
@@ -353,24 +517,7 @@ export default function RegistrationForm() {
         startCoords: departureCoords,
         endAddress: destinationName || data.destination,
         endCoords: destinationCoords,
-        waypoints: [
-          {
-            distance: 0,
-            name: departureName || data.departurePoint,
-            location: {
-              lng: departureCoords.lng,
-              lat: departureCoords.lat,
-            },
-          },
-          {
-            distance: selectedRoute.distance,
-            name: destinationName || data.destination,
-            location: {
-              lng: destinationCoords.lng,
-              lat: destinationCoords.lat,
-            },
-          },
-        ],
+        waypoints: routeWaypoints,
         path: {
           type: 'LineString',
           coordinates: selectedRoute.geometry.coordinates,
@@ -401,8 +548,12 @@ export default function RegistrationForm() {
       setDestinationCoords(null)
       setDepartureName('')
       setDestinationName('')
+      setWaypoints([])
       setRoute([])
       setSelectedRouteIndex(0)
+      setNewWaypointQuery('')
+      setNewWaypointSuggestions([])
+      setIsAddingWaypoint(false)
     } catch (error: any) {
       console.error(
         'Error creating route:',
@@ -568,6 +719,149 @@ export default function RegistrationForm() {
                       </svg>
                       {errors.departurePoint.message}
                     </p>
+                  )}
+                </div>
+
+                {/* Waypoints Section */}
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
+                    <MapPin className="w-4 h-4 text-[var(--primary)]" />
+                    Điểm dừng
+                  </label>
+
+                  {/* Display added waypoints */}
+                  {waypoints.map((waypoint) => (
+                    <div
+                      key={waypoint.id}
+                      className="flex items-center gap-2 p-3 border border-[var(--border)] rounded-lg"
+                    >
+                      <div className="flex-1">
+                        <p className="text-sm font-medium line-clamp-1">
+                          {waypoint.name.split(',')[0]}
+                        </p>
+                        <p className="text-xs text-[var(--muted-foreground)] line-clamp-1">
+                          {waypoint.name.split(',').slice(1).join(',')}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => removeWaypoint(waypoint.id)}
+                        className="h-8 w-8"
+                        aria-label={`Xóa điểm dừng`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+
+                  {/* Form to add new waypoint */}
+                  {isAddingWaypoint && (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Input
+                          placeholder="Nhập địa chỉ điểm dừng"
+                          value={newWaypointQuery}
+                          onChange={(e) => setNewWaypointQuery(e.target.value)}
+                          className="pl-10 h-11 rounded-lg border-[var(--border)] text-[var(--foreground)] hover:border-[var(--ring)] focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]/20"
+                          aria-label="Điểm dừng"
+                        />
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)]" />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7"
+                          onClick={cancelAddWaypoint}
+                          aria-label="Hủy thêm điểm dừng"
+                        >
+                          <X className="w-4 h-4 text-[var(--muted-foreground)]" />
+                        </Button>
+                      </div>
+
+                      {/* Display waypoint suggestions */}
+                      {(newWaypointSuggestions.length > 0 ||
+                        isLoadingWaypoint) && (
+                        <div className="border border-[var(--border)] rounded-lg overflow-hidden">
+                          <Command className="rounded-lg">
+                            <CommandList className="max-h-[200px] overflow-y-auto">
+                              {isLoadingWaypoint ? (
+                                <CommandEmpty className="py-6 text-center text-sm text-[var(--muted-foreground)]">
+                                  <span className="flex items-center justify-center gap-2">
+                                    <svg
+                                      className="animate-spin h-4 w-4 text-[var(--primary)]"
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <circle
+                                        className="opacity-25"
+                                        cx="12"
+                                        cy="12"
+                                        r="10"
+                                        stroke="currentColor"
+                                        strokeWidth="4"
+                                      ></circle>
+                                      <path
+                                        className="opacity-75"
+                                        fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                      ></path>
+                                    </svg>
+                                    Đang tìm kiếm...
+                                  </span>
+                                </CommandEmpty>
+                              ) : newWaypointSuggestions.length === 0 ? (
+                                <CommandEmpty className="py-6 text-center text-sm text-[var(--muted-foreground)]">
+                                  Không tìm thấy địa điểm phù hợp
+                                </CommandEmpty>
+                              ) : (
+                                newWaypointSuggestions.map((suggestion) => (
+                                  <CommandItem
+                                    key={suggestion.place_id}
+                                    value={suggestion.description}
+                                    onSelect={() => selectWaypoint(suggestion)}
+                                    className="px-3 py-2.5 cursor-pointer rounded-md hover:bg-[var(--accent)] text-[var(--foreground)] aria-selected:bg-[var(--primary)]/10 aria-selected:text-[var(--primary)]"
+                                  >
+                                    <div className="flex items-start gap-3">
+                                      <div className="mt-0.5 p-1 rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
+                                        <MapPin className="h-3.5 w-3.5" />
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-medium line-clamp-1">
+                                          {suggestion.description.split(',')[0]}
+                                        </p>
+                                        <p className="text-xs text-[var(--muted-foreground)] line-clamp-1">
+                                          {suggestion.description
+                                            .split(',')
+                                            .slice(1)
+                                            .join(',')}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </CommandItem>
+                                ))
+                              )}
+                            </CommandList>
+                          </Command>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Add waypoint button */}
+                  {!isAddingWaypoint && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={addWaypoint}
+                      className="mt-2 h-11 w-full border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]"
+                      aria-label="Thêm điểm dừng"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Thêm điểm dừng
+                    </Button>
                   )}
                 </div>
 
@@ -899,7 +1193,8 @@ export default function RegistrationForm() {
                       isSubmitting ||
                       route.length === 0 ||
                       !departureCoords ||
-                      !destinationCoords
+                      !destinationCoords ||
+                      waypoints.some((wp) => !wp.coordinates)
                     }
                     className="w-full h-12 text-base font-medium bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-[var(--primary-foreground)] shadow-md transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -914,10 +1209,17 @@ export default function RegistrationForm() {
         {/* Map Section */}
         <div className="space-y-6 h-full">
           <Card className="shadow-sm h-full flex flex-col border-[var(--border)] bg-[var(--card)]">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-xl flex items-center gap-2 text-[var(--foreground)]">
-                <MapPin className="w-5 h-5 text-[var(--primary)]" />
-                Bản đồ tuyến đường
+            <CardHeader className="pb-0">
+              <CardTitle className="text-2xl font-semibold flex items-center gap-3 text-[var(--foreground)]">
+                <div className="p-2 rounded-lg bg-[var(--primary)]/10 text-[var(--primary)]">
+                  <MapPin className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="leading-tight">Bản đồ tuyến đường</p>
+                  <p className="text-sm font-normal text-[var(--muted-foreground)] mt-1">
+                    Xem trước tuyến đường của bạn trên bản đồ
+                  </p>
+                </div>
               </CardTitle>
             </CardHeader>
             <Separator className="bg-[var(--border)]" />
@@ -1008,6 +1310,21 @@ export default function RegistrationForm() {
                           <MapPin className="w-4 h-4 text-[var(--accent-foreground)]" />
                         </div>
                       </Marker>
+                    )}
+
+                    {waypoints.map((wp) =>
+                      wp.coordinates ? (
+                        <Marker
+                          key={wp.id}
+                          longitude={wp.coordinates.lng}
+                          latitude={wp.coordinates.lat}
+                          anchor="bottom"
+                        >
+                          <div className="bg-[#eab308] p-1.5 rounded-full shadow-lg border-2 border-[var(--card)]">
+                            <MapPin className="w-4 h-4 text-white" />
+                          </div>
+                        </Marker>
+                      ) : null
                     )}
 
                     {destinationCoords && (

@@ -2,7 +2,7 @@
 
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CalendarIcon, MapPin, Users } from 'lucide-react'
+import { CalendarIcon, MapPin, Users, Loader2 } from 'lucide-react'
 import { z } from 'zod'
 import { useContext, useEffect, useState, useRef } from 'react'
 import { Input } from '@/components/ui/input'
@@ -98,6 +98,7 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
   const [dropoffCoords, setDropoffCoords] = useState<Coordinates | null>(null)
   const [route, setRoute] = useState<any[]>([])
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(0)
+  const [isLoading, setIsLoading] = useState(false) // Thêm state cho loading
 
   const router = useRouter()
   const pathname = usePathname()
@@ -257,27 +258,31 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
   }, [dropoffOpen, watch])
 
   const onSubmit = async (data: FormData) => {
+    setIsLoading(true) // Bật trạng thái loading
     try {
       // Prepare search data for API
       const searchData: SearchRouteType = {
-        startCoords: pickupCoords || undefined,
-        endCoords: dropoffCoords || undefined,
+        startCoords: pickupCoords||undefined,
+        endCoords: dropoffCoords||undefined,
         date: data.date,
         seatsAvailable: data.passengers,
       }
-      // Call API to search routes
+      console.log('Sending search data:', searchData)
       const response = await searchRoutesQueryFn(searchData)
       const searchResults = response.data
+
+      const queryParams = new URLSearchParams({
+        pickup: data.pickup,
+        dropoff: data.dropoff,
+        date: data.date,
+        passengers: data.passengers.toString(),
+      }).toString()
+
       if (pathname === '/') {
         localStorage.setItem('searchResults', JSON.stringify(searchResults))
-        const queryParams = new URLSearchParams({
-          pickup: data.pickup,
-          dropoff: data.dropoff,
-          date: data.date,
-          passengers: data.passengers.toString(),
-        }).toString()
         router.push(`/booking?${queryParams}`)
       } else {
+        router.replace(`/booking?${queryParams}`, { scroll: false })
         if (onSearchResults) {
           onSearchResults(searchResults)
         }
@@ -288,6 +293,8 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
       if (onSearchResults) {
         onSearchResults([])
       }
+    } finally {
+      setIsLoading(false) // Tắt trạng thái loading
     }
   }
 
@@ -365,7 +372,6 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
               >
                 <Command className="rounded-lg">
                   <div className="relative px-3 py-2 border-b border-[var(--border)]">
-                    <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--muted-foreground)]" />
                     <CommandInput
                       placeholder="Tìm kiếm điểm đón..."
                       value={pickupQuery}
@@ -446,7 +452,6 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
               >
                 <Command className="rounded-lg">
                   <div className="relative px-3 py-2 border-b border-[var(--border)]">
-                    <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--muted-foreground)]" />
                     <CommandInput
                       placeholder="Tìm kiếm điểm đến..."
                       value={dropoffQuery}
@@ -569,12 +574,20 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
           {/* Nút tìm chuyến */}
           <div className="lg:pt-7 pt-0 sm:col-span-2 lg:col-span-1">
             <div className="flex items-end justify-center">
-              <button
+              <Button
                 type="submit"
-                className="bg-[var(--primary)] text-[var(--primary-foreground)] text-sm font-semibold px-8 py-3 rounded-lg shadow-md hover:opacity-90 transition-all w-full"
+                className="bg-[var(--primary)] text-[var(--primary-foreground)] text-sm font-semibold px-8 py-3 rounded-lg shadow-md hover:opacity-90 transition-all w-full h-11"
+
               >
-                Tìm chuyến
-              </button>
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Đang tìm...
+                  </div>
+                ) : (
+                  'Tìm chuyến'
+                )}
+              </Button>
             </div>
             {hasErrors && <div className="h-5"></div>}
           </div>

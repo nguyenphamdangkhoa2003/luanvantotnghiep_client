@@ -1,3 +1,4 @@
+
 'use client'
 
 import {
@@ -58,8 +59,9 @@ export function DriverTab({ user, refetchData }: DriverTabProps) {
     user.identityDocument?.verificationStatus === 'approved' &&
     user.driverLicense?.verificationStatus === 'approved'
 
+  const isVehicleApproved = user.vehicles?.[0]?.verificationStatus === 'approved'
+
   const getStatusBadge = (status?: 'approved' | 'rejected' | 'pending') => {
-    console.log('DriverTab getStatusBadge status:', status) // Debug log
     switch (status) {
       case 'approved':
         return (
@@ -300,23 +302,119 @@ export function DriverTab({ user, refetchData }: DriverTabProps) {
             </Card>
 
             {/* Vehicle Info Section */}
-            <VehicleInfoSection
-              initialData={{
-                vehicleId: user.vehicles?.[0]?._id?.$oid,
-                plateNumber: user.vehicles?.[0]?.licensePlate,
-                brand: user.vehicles?.[0]?.model,
-                seats: user.vehicles?.[0]?.seats,
-                registrationDocument: user.vehicles?.[0]?.registrationDocument,
-                insuranceDocument: user.vehicles?.[0]?.insuranceDocument,
-                verificationStatus: user.vehicles?.[0]?.verificationStatus,
-              }}
-              onSuccess={async () => {
-                await refetchData()
-              }}
-              onError={(error: any) => {
-                console.error('Vehicle submission error:', error)
-              }}
-            />
+            {isVehicleApproved ? (
+              <Card className="overflow-hidden border border-gray-200 dark:border-gray-700 rounded-lg">
+                <CardHeader className="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                      <span className="bg-purple-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-medium">
+                        3
+                      </span>
+                      Thông tin phương tiện
+                    </CardTitle>
+                    {getStatusBadge(user.vehicles?.[0]?.verificationStatus)}
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                        Biển số xe
+                      </p>
+                      <p className="text-gray-900 dark:text-gray-100 font-semibold">
+                        {user.vehicles?.[0]?.licensePlate || 'Chưa có dữ liệu'}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                        Mẫu xe
+                      </p>
+                      <p className="text-gray-900 dark:text-gray-100 font-semibold">
+                        {user.vehicles?.[0]?.model || 'Chưa có dữ liệu'}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                        Số ghế
+                      </p>
+                      <p className="text-gray-900 dark:text-gray-100 font-semibold">
+                        {user.vehicles?.[0]?.seats || 'Chưa có dữ liệu'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Card className="border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow">
+                      <CardHeader className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                        <CardTitle className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Giấy đăng ký xe
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="px-4 py-4">
+                        {user.vehicles?.[0]?.registrationDocument ? (
+                          <div className="relative aspect-[3.5/2.2] rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+                            <img
+                              src={user.vehicles[0].registrationDocument}
+                              alt="Giấy đăng ký xe"
+                              className="absolute inset-0 w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.src = '/placeholder-image.png'
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="aspect-[3.5/2.2] rounded-md border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800">
+                            Không có ảnh
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                    <Card className="border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow">
+                      <CardHeader className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                        <CardTitle className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Giấy bảo hiểm
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="px-4 py-4">
+                        {user.vehicles?.[0]?.insuranceDocument ? (
+                          <div className="relative aspect-[3.5/2.2] rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+                            <img
+                              src={user.vehicles[0].insuranceDocument}
+                              alt="Giấy bảo hiểm"
+                              className="absolute inset-0 w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.src = '/placeholder-image.png'
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="aspect-[3.5/2.2] rounded-md border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800">
+                            Không có ảnh
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <VehicleInfoSection
+                initialData={{
+                  vehicleId: user.vehicles?.[0]?._id?.$oid,
+                  plateNumber: user.vehicles?.[0]?.licensePlate,
+                  brand: user.vehicles?.[0]?.model,
+                  seats: user.vehicles?.[0]?.seats,
+                  registrationDocument: user.vehicles?.[0]?.registrationDocument,
+                  insuranceDocument: user.vehicles?.[0]?.insuranceDocument,
+                  verificationStatus: user.vehicles?.[0]?.verificationStatus,
+                }}
+                onSuccess={async () => {
+                  await refetchData()
+                }}
+                onError={(error: any) => {
+                  console.error('Vehicle submission error:', error)
+                }}
+              />
+            )}
           </div>
         ) : (
           <DriverInfoForm userData={user} refetch={refetchData} />
@@ -325,3 +423,4 @@ export function DriverTab({ user, refetchData }: DriverTabProps) {
     </Card>
   )
 }
+

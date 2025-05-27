@@ -40,7 +40,7 @@ type UpdateVehicleType = {
 }
 
 type ApproveVehicleType = {
-  verificationStatus: 'APPROVED' | 'REJECTED'
+  verificationStatus: 'approved' | 'rejected'
   rejectionReason?: string
 }
 

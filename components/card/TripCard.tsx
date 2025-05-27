@@ -24,6 +24,7 @@ interface TripCardProps {
   userId: {
     name: string
     avatar: string
+    averageRating: number
   }
   name: string
   waypoints: {
@@ -69,7 +70,7 @@ const formatTime = (isoString?: string): string => {
       console.warn('formatTime: Invalid date from isoString:', isoString)
       return 'N/A'
     }
-    return format(date, 'HH:mm')
+    return format(date, 'dd/MM/yyyy HH:mm')
   } catch (error) {
     console.error(
       'formatTime: Error parsing date:',
@@ -86,7 +87,7 @@ const calculateArrivalTime = (
   startTime?: string,
   duration?: number
 ): string => {
-  if (!startTime || !duration) {
+  if (!startTime || duration === undefined) {
     console.warn('calculateArrivalTime: Missing startTime or duration', {
       startTime,
       duration,
@@ -100,7 +101,7 @@ const calculateArrivalTime = (
       return 'N/A'
     }
     const arrivalDate = addSeconds(startDate, duration)
-    return format(arrivalDate, 'HH:mm')
+    return format(arrivalDate, 'dd/MM/yyyy HH:mm')
   } catch (error) {
     console.error(
       'calculateArrivalTime: Error calculating arrival time:',
@@ -124,7 +125,23 @@ const getInitials = (name: string): string => {
     .map((n) => n.charAt(0))
     .join('')
     .toUpperCase()
-    .slice(0, 2)
+    .substring(0, 2)
+}
+
+// Hàm kiểm tra tọa độ hợp lệ
+const validateCoordinates = (coords: unknown): coords is [number, number] => {
+  return (
+    Array.isArray(coords) &&
+    coords.length === 2 &&
+    typeof coords[0] === 'number' &&
+    typeof coords[1] === 'number' &&
+    !isNaN(coords[0]) &&
+    !isNaN(coords[1]) &&
+    coords[0] >= -180 &&
+    coords[0] <= 180 &&
+    coords[1] >= -90 &&
+    coords[1] <= 90
+  )
 }
 
 export default function TripCard(trip: TripCardProps) {
@@ -133,111 +150,104 @@ export default function TripCard(trip: TripCardProps) {
     trip.waypoints[0]?.name || 'Không xác định'
   )
   const dropoffAddress = formatAddress(
-    trip.waypoints[1]?.name || 'Không xác định'
+    trip.waypoints.length > 0
+      ? trip.waypoints[trip.waypoints.length - 1]?.name || 'Không xác định'
+      : 'Không xác định'
   )
   const departureTime = formatTime(trip.startTime)
   const arrivalTime = calculateArrivalTime(trip.startTime, trip.duration)
   const driverName = trip.userId.name
   const driverAvatar = trip.userId.avatar
   const driverInitials = getInitials(driverName)
-  const driverRating = 4.5
+  const driverRating = trip.userId.averageRating || 0
+ 
 
   const [selectedWaypoint, setSelectedWaypoint] = useState<{
     name: string
     longitude: number
     latitude: number
   } | null>(null)
-  const [directions, setDirections] = useState<any>(null)
 
-  // Validate coordinates
-  const isValidCoordinates = (coords: [number, number][]): boolean => {
-    if (!coords || coords.length < 2) {
-      console.error(
-        'Invalid coordinates: Array is empty or has insufficient points',
-        coords
-      )
-      return false
-    }
-    return coords.every(([lng, lat]) => {
-      const isValid =
-        typeof lng === 'number' &&
-        typeof lat === 'number' &&
-        lng >= -180 &&
-        lng <= 180 &&
-        lat >= -90 &&
-        lat <= 90
-      if (!isValid) {
-        console.error('Invalid coordinate pair:', [lng, lat])
-      }
-      return isValid
-    })
+  // Validate waypoints
+  if (!trip.waypoints || trip.waypoints.length === 0) {
+    console.error('Invalid trip data: missing waypoints', trip)
+    return (
+      <Card className="border border-[var(--border)] rounded-[var(--radius-md)] bg-[var(--muted)] p-4">
+        <p className="text-yellow-600">Chưa có dữ liệu điểm dừng</p>
+      </Card>
+    )
   }
 
-  // Fetch directions from Mapbox API
-  useEffect(() => {
-    const fetchDirections = async () => {
-      if (!MAPBOX_TOKEN) {
-        console.error('Mapbox token is missing')
-        return
-      }
-      try {
-        const response = await fetch(
-          `https://api.mapbox.com/directions/v5/mapbox/driving/${trip.startPoint.coordinates[0]},${trip.startPoint.coordinates[1]};${trip.endPoint.coordinates[0]},${trip.endPoint.coordinates[1]}?access_token=${MAPBOX_TOKEN}&geometries=geojson&steps=true&overview=full&language=vi`
-        )
-        const data = await response.json()
-        if (data.routes && data.routes.length > 0) {
-          console.log('Directions API response:', data) // Debug log
-          setDirections(data)
-        } else {
-          console.error('No routes found in Directions API response:', data)
-        }
-      } catch (error) {
-        console.error('Error fetching directions:', error)
-      }
-    }
-    fetchDirections()
-  }, [trip.startPoint, trip.endPoint])
+  // Validate trip data
+  if (
+    !trip.startPoint?.coordinates ||
+    !trip.endPoint?.coordinates ||
+    !trip.path?.coordinates ||
+    !trip.path.coordinates.every(validateCoordinates)
+  ) {
+    console.error('Invalid trip data: Missing or invalid coordinates', trip)
+    return (
+      <Card className="border border-[var(--border)] rounded-[var(--radius-md)] bg-[var(--muted)] p-4">
+        <p className="text-destructive">Lỗi: Dữ liệu chuyến đi không hợp lệ</p>
+      </Card>
+    )
+  }
 
-  // GeoJSON for the route path
+  // Process waypoints safely
+  const safeWaypoints = trip.waypoints.map((wp) => {
+    const defaultCoords = [0, 0] as [number, number]
+    return {
+      ...wp,
+      coordinates: validateCoordinates(wp.coordinates)
+        ? wp.coordinates
+        : defaultCoords,
+      hasValidCoords: validateCoordinates(wp.coordinates),
+    }
+  })
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Waypoints analysis:', {
+      rawData: trip.waypoints,
+      processed: safeWaypoints.map((wp) => ({
+        name: wp.name,
+        coordinates: wp.coordinates,
+        isValid: wp.hasValidCoords,
+      })),
+      validCount: safeWaypoints.filter((wp) => wp.hasValidCoords).length,
+    })
+  }, [trip])
+
+  // GeoJSON for the route path using trip.path.coordinates
   const routeGeoJSON: GeoJSON.Feature<GeoJSON.LineString> = {
     type: 'Feature',
     geometry: {
       type: 'LineString',
-      coordinates: isValidCoordinates(
-        directions?.routes?.[trip.routeIndex]?.geometry?.coordinates ||
-          trip.path.coordinates
-      )
-        ? directions?.routes?.[trip.routeIndex]?.geometry?.coordinates ||
-          trip.path.coordinates
-        : [],
+      coordinates: trip.path.coordinates,
     },
     properties: {},
   }
 
+  // Calculate map bounds
   const coordinates = [
     trip.startPoint.coordinates,
     trip.endPoint.coordinates,
     ...(routeGeoJSON.geometry.coordinates || []),
-  ]
-  const validCoordinates = coordinates.filter(
-    ([lng, lat]) =>
-      typeof lng === 'number' &&
-      typeof lat === 'number' &&
-      lng >= -180 &&
-      lng <= 180 &&
-      lat >= -90 &&
-      lat <= 90
-  )
+  ].filter(validateCoordinates)
 
-  if (validCoordinates.length < 2) {
-    console.error(
-      'Not enough valid coordinates to display map',
-      validCoordinates
+  if (coordinates.length < 2) {
+    console.error('Not enough valid coordinates to display map', coordinates)
+    return (
+      <Card className="border border-[var(--border)] rounded-[var(--radius-md)] bg-[var(--muted)] p-4">
+        <p className="text-destructive">
+          Lỗi: Không đủ tọa độ để hiển thị bản đồ
+        </p>
+      </Card>
     )
   }
 
-  const longitudes = validCoordinates.map((coord) => coord[0])
-  const latitudes = validCoordinates.map((coord) => coord[1])
+  const longitudes = coordinates.map((coord) => coord[0])
+  const latitudes = coordinates.map((coord) => coord[1])
   const bounds = {
     minLng: Math.min(...longitudes),
     maxLng: Math.max(...longitudes),
@@ -246,48 +256,32 @@ export default function TripCard(trip: TripCardProps) {
   }
   const centerLng = (bounds.minLng + bounds.maxLng) / 2
   const centerLat = (bounds.minLat + bounds.maxLat) / 2
+  const latDiff = bounds.maxLat - bounds.minLat
+  const lngDiff = bounds.maxLng - bounds.minLng
+  const zoom = Math.min(13, Math.log2(360 / Math.max(latDiff, lngDiff)) - 1)
   const initialViewState = {
     longitude: centerLng,
     latitude: centerLat,
-    zoom: 13,
+    zoom,
   }
 
   const handleDetailsClick = () => {
     router.push(`/booking/tripdetail/${trip._id}`)
   }
 
-  const waypointsWithCoords = trip.waypoints.map((wp, index) => ({
-    ...wp,
-    coordinates:
-      wp.coordinates.length === 2 &&
-      isValidCoordinates([wp.coordinates as [number, number]])
-        ? wp.coordinates
-        : index === 0
-        ? trip.startPoint.coordinates
-        : index === trip.waypoints.length - 1
-        ? trip.endPoint.coordinates
-        : [],
+  // Fallback route steps for details
+  const fallbackRouteSteps = safeWaypoints.map((wp, index) => ({
+    maneuver: {
+      instruction:
+        index === 0
+          ? `Điểm đầu: ${wp.name}`
+          : index === safeWaypoints.length - 1
+          ? `Điểm cuối: ${wp.name}`
+          : `Điểm dừng: ${wp.name}`,
+    },
+    distance: wp.distance || 0,
+    name: wp.name,
   }))
-
-  const routeSteps =
-    directions?.routes?.[trip.routeIndex]?.legs?.[0]?.steps || []
-
-  const fallbackRouteSteps = [
-    {
-      maneuver: { instruction: `Bắt đầu tại ${waypointsWithCoords[0].name}` },
-      distance: 0,
-      name: waypointsWithCoords[0].name,
-    },
-    {
-      maneuver: {
-        instruction: `Đến đích tại ${
-          waypointsWithCoords[waypointsWithCoords.length - 1].name
-        }`,
-      },
-      distance: trip.distance,
-      name: waypointsWithCoords[waypointsWithCoords.length - 1].name,
-    },
-  ]
 
   return (
     <div>
@@ -466,7 +460,7 @@ export default function TripCard(trip: TripCardProps) {
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm">
                             <Clock className="w-4 h-4" />
-                            <span>{(trip.duration / 60).toFixed(0)} phút</span>
+                            <span>{(trip.duration / 60 /60).toFixed(1)} giờ</span>
                           </div>
                           <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm">
                             <span>{(trip.distance / 1000).toFixed(1)} km</span>
@@ -488,6 +482,12 @@ export default function TripCard(trip: TripCardProps) {
                       <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
                         {/* Map - 2/3 width */}
                         <div className="relative h-[60vh] md:h-full w-full md:w-2/3">
+                          {safeWaypoints.filter((wp) => wp.hasValidCoords)
+                            .length === 0 && (
+                            <div className="absolute top-0 left-0 right-0 bg-yellow-100 text-yellow-800 p-2 text-center z-10">
+                              Không có điểm dừng hợp lệ để hiển thị
+                            </div>
+                          )}
                           {!MAPBOX_TOKEN ? (
                             <div className="flex items-center justify-center h-full bg-muted text-destructive">
                               Lỗi: Không tìm thấy Mapbox token
@@ -516,76 +516,90 @@ export default function TripCard(trip: TripCardProps) {
                                 />
                               </Source>
 
-                              {/* Start Marker */}
+                              {/* Start Marker (Điểm đầu) */}
                               <Marker
                                 longitude={trip.startPoint.coordinates[0]}
                                 latitude={trip.startPoint.coordinates[1]}
+                                anchor="center"
                               >
                                 <div className="relative">
-                                  <div className="w-7 h-7 bg-green-500 rounded-full border-2 border-white shadow-lg" />
+                                  <div className="w-7 h-7 bg-green-500 rounded-full border-2 border-white shadow-lg">
+                                    <span className="sr-only">Điểm đầu</span>
+                                  </div>
                                   <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap px-2 py-1 bg-white rounded-md shadow-sm text-sm font-medium">
-                                    Điểm đón
+                                    Điểm đầu:{' '}
+                                    {safeWaypoints[0].name.split(',')[0]}
                                   </div>
                                 </div>
                               </Marker>
 
-                              {/* End Marker */}
+                              {/* End Marker (Điểm cuối) */}
                               <Marker
                                 longitude={trip.endPoint.coordinates[0]}
                                 latitude={trip.endPoint.coordinates[1]}
+                                anchor="center"
                               >
                                 <div className="relative">
-                                  <div className="w-7 h-7 bg-red-500 rounded-full border-2 border-white shadow-lg" />
+                                  <div className="w-7 h-7 bg-red-500 rounded-full border-2 border-white shadow-lg">
+                                    <span className="sr-only">Điểm cuối</span>
+                                  </div>
                                   <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap px-2 py-1 bg-white rounded-md shadow-sm text-sm font-medium">
-                                    Điểm đến
+                                    Điểm cuối:{' '}
+                                    {
+                                      safeWaypoints[
+                                        safeWaypoints.length - 1
+                                      ].name.split(',')[0]
+                                    }
                                   </div>
                                 </div>
                               </Marker>
 
-                              {/* Waypoints */}
-                              {waypointsWithCoords
-                                .filter(
-                                  (wp, index) =>
+                              {/* Stop Markers (Điểm dừng) */}
+                              {safeWaypoints
+                                .filter((wp, index) => {
+                                  const isIntermediate =
                                     index !== 0 &&
-                                    index !== waypointsWithCoords.length - 1
-                                )
-                                .map((wp) => (
-                                  <Marker
-                                    key={wp._id}
-                                    longitude={wp.coordinates[0]}
-                                    latitude={wp.coordinates[1]}
-                                  >
-                                    <div className="relative">
-                                      <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-md" />
-                                      <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap px-2 py-1 bg-white rounded-md shadow-sm text-sm font-medium">
-                                        {wp.name.split(',')[0]}
-                                      </div>
-                                    </div>
-                                  </Marker>
-                                ))}
-
-                              {selectedWaypoint && (
-                                <Popup
-                                  longitude={selectedWaypoint.longitude}
-                                  latitude={selectedWaypoint.latitude}
-                                  onClose={() => setSelectedWaypoint(null)}
-                                  closeButton={false}
-                                  anchor="bottom"
-                                  className="[&>div]:!p-2 [&>div]:!rounded-lg [&>div]:!shadow-lg"
-                                >
-                                  <div className="max-w-xs">
-                                    <p className="text-sm font-medium text-foreground">
-                                      {selectedWaypoint.name}
-                                    </p>
-                                    <button
-                                      onClick={() => setSelectedWaypoint(null)}
-                                      className="absolute top-1 right-1 p-1 rounded-full hover:bg-muted"
+                                    index !== safeWaypoints.length - 1
+                                  return isIntermediate && wp.hasValidCoords
+                                })
+                                .map((wp, index) => {
+                                  const [lng, lat] = wp.coordinates
+                                  return (
+                                    <Marker
+                                      key={`stop-${index}-${lng}-${lat}`}
+                                      longitude={lng}
+                                      latitude={lat}
+                                      anchor="center"
+                                      onClick={(e) => {
+                                        e.originalEvent.stopPropagation()
+                                        setSelectedWaypoint({
+                                          name: wp.name,
+                                          longitude: lng,
+                                          latitude: lat,
+                                        })
+                                      }}
                                     >
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                </Popup>
-                              )}
+                                      <div className="relative">
+                                        <div
+                                          className="w-6 h-6 bg-yellow-400 rounded-full border-2 border-white shadow-md"
+                                          style={{
+                                            clipPath:
+                                              'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
+                                          }}
+                                        >
+                                          <span className="sr-only">
+                                            Điểm dừng {index + 1}
+                                          </span>
+                                        </div>
+                                        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap px-2 py-1 bg-white rounded-md shadow-sm text-sm font-medium">
+                                          Điểm dừng: {wp.name.split(',')[0]}
+                                        </div>
+                                      </div>
+                                    </Marker>
+                                  )
+                                })}
+
+                              
                             </Map>
                           )}
                         </div>
@@ -620,7 +634,7 @@ export default function TripCard(trip: TripCardProps) {
                               </div>
                               <div className="flex items-center justify-between">
                                 <span className="text-sm text-muted-foreground">
-                                  Giờ đến
+                                  Giờ đến dự kiến
                                 </span>
                                 <span className="font-medium">
                                   {arrivalTime}
@@ -644,16 +658,12 @@ export default function TripCard(trip: TripCardProps) {
                               <div className="relative max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground scrollbar-track-muted pr-4">
                                 <div className="absolute left-[11px] top-2 bottom-2 w-px bg-primary/20"></div>
                                 <ul className="space-y-4">
-                                  {(routeSteps.length > 0
-                                    ? routeSteps
-                                    : fallbackRouteSteps
-                                  ).map((step: any, index: number) => (
+                                  {fallbackRouteSteps.map((step, index) => (
                                     <li key={index} className="relative pl-8">
                                       <div className="absolute left-0 top-1 w-3 h-3 rounded-full bg-primary border-2 border-white shadow-sm"></div>
                                       <div className="text-sm">
                                         <p className="font-medium text-foreground">
-                                          {step.maneuver?.instruction ||
-                                            step.name}
+                                          {step.maneuver.instruction}
                                         </p>
                                         {step.distance > 0 && (
                                           <p className="text-muted-foreground mt-1">
