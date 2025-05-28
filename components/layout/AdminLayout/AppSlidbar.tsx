@@ -1,6 +1,6 @@
 'use client'
 import * as React from 'react'
-import { LayoutDashboardIcon, Users, Settings } from 'lucide-react'
+import { LayoutDashboardIcon, Users, Settings,Car,Package } from 'lucide-react'
 import { NavMain } from './NavMain'
 import { NavUser } from './NavUser'
 import {
@@ -42,6 +42,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         url: '/admin/users',
         icon: Users,
       },
+      {
+        title: 'Pass Packages',
+        url: '/admin/pass-packages',
+        icon: Package,
+      },
+      {
+        title: 'Driver Passes',
+        url: '/admin/driverpasses',
+        icon: Car,
+      },
+
       {
         title: 'Settings',
         url: '/admin/settings',

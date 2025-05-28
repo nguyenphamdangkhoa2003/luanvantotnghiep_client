@@ -1,3 +1,4 @@
+
 import { UserType } from '@/context/auth-provider'
 import { Button } from '@/components/ui/button'
 import { MdOutlineVerified, MdWarning, MdClose, MdZoomIn } from 'react-icons/md'
@@ -34,7 +35,7 @@ interface Vehicle {
   seats: number
   registrationDocument: string
   insuranceDocument?: string
-  verificationStatus: 'pending' | 'approved' | 'rejected' // Cập nhật để dùng chữ thường
+  verificationStatus: 'pending' | 'approved' | 'rejected'
 }
 
 export default function DriverTab({ userData, refetch }: DriverTabProps) {
@@ -96,11 +97,11 @@ export default function DriverTab({ userData, refetch }: DriverTabProps) {
       reason,
     }: {
       vehicleId: string
-      action: 'approved' | 'rejected' // Cập nhật để dùng chữ thường
+      action: 'approved' | 'rejected'
       reason?: string
     }) =>
       approveVehicleMutationFn(userData._id, vehicleId, {
-        verificationStatus: action, // Gửi chữ thường: approved, rejected
+        verificationStatus: action,
         rejectionReason: reason,
       }),
     onSuccess: (_, variables) => {
@@ -141,7 +142,7 @@ export default function DriverTab({ userData, refetch }: DriverTabProps) {
     setCurrentVehicleId(vehicleId)
     verifyVehicleMutation.mutate({
       vehicleId,
-      action: 'approved', // Cập nhật để dùng chữ thường
+      action: 'approved',
     })
   }
 
@@ -164,7 +165,7 @@ export default function DriverTab({ userData, refetch }: DriverTabProps) {
     if (currentDocumentType === 'vehicle' && currentVehicleId) {
       verifyVehicleMutation.mutate({
         vehicleId: currentVehicleId,
-        action: 'rejected', // Cập nhật để dùng chữ thường
+        action: 'rejected',
         reason: rejectReason,
       })
     } else if (
@@ -183,14 +184,15 @@ export default function DriverTab({ userData, refetch }: DriverTabProps) {
     setZoomImage({ url, alt })
   }
 
-  const isIdentityVerified =
-    userData.identityDocument?.verificationStatus === 'approved'
-  const isDriverLicenseVerified =
-    userData.driverLicense?.verificationStatus === 'approved'
-    const isDriverVehiclesVerified =
-      userData.vehicles?.[0].verificationStatus === 'approved'
+  const isIdentityVerified = userData.identityDocument?.verificationStatus === 'approved';
+  const isDriverLicenseVerified = userData.driverLicense?.verificationStatus === 'approved';
+  const isDriverVehiclesVerified = userData.vehicles?.length > 0 && userData.vehicles.every((vehicle) => vehicle.verificationStatus === 'approved');
+  const hasDataToVerify = userData.identityDocument || userData.driverLicense || (userData.vehicles?.length > 0);
   const isFullyVerified =
-    isIdentityVerified && isDriverLicenseVerified && isDriverVehiclesVerified
+    hasDataToVerify &&
+    isIdentityVerified &&
+    isDriverLicenseVerified &&
+    isDriverVehiclesVerified;
 
   const getStatusBadge = (status?: string) => {
     switch (status?.toLowerCase()) {
@@ -269,8 +271,9 @@ export default function DriverTab({ userData, refetch }: DriverTabProps) {
           </p>
         </div>
       </div>
+
       {/* Thông báo khi đã xác minh */}
-      {isFullyVerified && (
+      {isFullyVerified && hasDataToVerify && (
         <div className="p-4 bg-success/10 rounded-lg border border-success/30 flex items-start gap-3">
           <MdOutlineVerified className="h-5 w-5 text-success mt-0.5 flex-shrink-0" />
           <div>
@@ -281,6 +284,7 @@ export default function DriverTab({ userData, refetch }: DriverTabProps) {
           </div>
         </div>
       )}
+
       {/* Reject Dialog */}
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
         <DialogContent className="max-w-3xl p-4">
@@ -356,177 +360,183 @@ export default function DriverTab({ userData, refetch }: DriverTabProps) {
       </Dialog>
 
       {/* Grid layout cho các loại giấy tờ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Card CCCD */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="pb-3">
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <span>Căn cước công dân</span>
-                {getStatusBadge(userData.identityDocument?.verificationStatus)}
-              </CardTitle>
-              {!isIdentityVerified && (
-                <div className="flex gap-2">
-                  <ConfirmDialog
-                    title="Xác minh Căn cước công dân"
-                    description="Bạn có chắc chắn muốn xác minh Căn cước công dân của tài xế này?"
-                    confirmText="Xác nhận xác minh"
-                    cancelText="Hủy bỏ"
-                    onConfirm={() => handleApproveDocument('identityDocument')}
-                  >
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="flex items-center gap-2 shadow-sm"
-                      disabled={verifyDocumentMutation.isPending}
-                    >
-                      <MdOutlineVerified className="h-4 w-4" />
-                      Xác minh
-                    </Button>
-                  </ConfirmDialog>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="shadow-sm"
-                    onClick={() => handleOpenRejectDialog('identityDocument')}
-                    disabled={verifyDocumentMutation.isPending}
-                  >
-                    <MdClose className="h-4 w-4" />
-                    Từ chối
-                  </Button>
-                </div>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-muted-foreground">
-                  Số CCCD
-                </h4>
-                <p className="font-medium text-lg">
-                  {userData.identityDocument?.documentNumber || '---'}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-muted-foreground">
-                  Ảnh mặt trước
-                </h4>
-                <div className="relative aspect-video rounded-lg overflow-hidden border">
-                  {renderImageWithZoom(
-                    userData.identityDocument?.frontImage,
-                    'Ảnh mặt trước CCCD'
+      {hasDataToVerify && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Card CCCD */}
+          {userData.identityDocument && (
+            <Card className="hover:shadow-md transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <span>Căn cước công dân</span>
+                    {getStatusBadge(userData.identityDocument.verificationStatus)}
+                  </CardTitle>
+                  {userData.identityDocument.verificationStatus !== 'approved' && (
+                    <div className="flex gap-2">
+                      <ConfirmDialog
+                        title="Xác minh Căn cước công dân"
+                        description="Bạn có chắc chắn muốn xác minh Căn cước công dân của tài xế này?"
+                        confirmText="Xác nhận xác minh"
+                        cancelText="Hủy bỏ"
+                        onConfirm={() => handleApproveDocument('identityDocument')}
+                      >
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="flex items-center gap-2 shadow-sm"
+                          disabled={verifyDocumentMutation.isPending}
+                        >
+                          <MdOutlineVerified className="h-4 w-4" />
+                          Xác minh
+                        </Button>
+                      </ConfirmDialog>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="shadow-sm"
+                        onClick={() => handleOpenRejectDialog('identityDocument')}
+                        disabled={verifyDocumentMutation.isPending}
+                      >
+                        <MdClose className="h-4 w-4" />
+                        Từ chối
+                      </Button>
+                    </div>
                   )}
                 </div>
-              </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">
+                      Số CCCD
+                    </h4>
+                    <p className="font-medium text-lg">
+                      {userData.identityDocument.documentNumber || '---'}
+                    </p>
+                  </div>
+                </div>
 
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-muted-foreground">
-                  Ảnh mặt sau
-                </h4>
-                <div className="relative aspect-video rounded-lg overflow-hidden border">
-                  {renderImageWithZoom(
-                    userData.identityDocument?.backImage,
-                    'Ảnh mặt sau CCCD'
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">
+                      Ảnh mặt trước
+                    </h4>
+                    <div className="relative aspect-video rounded-lg overflow-hidden border">
+                      {renderImageWithZoom(
+                        userData.identityDocument.frontImage,
+                        'Ảnh mặt trước CCCD'
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">
+                      Ảnh mặt sau
+                    </h4>
+                    <div className="relative aspect-video rounded-lg overflow-hidden border">
+                      {renderImageWithZoom(
+                        userData.identityDocument.backImage,
+                        'Ảnh mặt sau CCCD'
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Card GPLX */}
+          {userData.driverLicense && (
+            <Card className="hover:shadow-md transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <span>Giấy phép lái xe</span>
+                    {getStatusBadge(userData.driverLicense.verificationStatus)}
+                  </CardTitle>
+                  {userData.driverLicense.verificationStatus !== 'approved' && (
+                    <div className="flex gap-2">
+                      <ConfirmDialog
+                        title="Xác minh Giấy phép lái xe"
+                        description="Bạn có chắc chắn muốn xác minh Giấy phép lái xe của tài xế này?"
+                        confirmText="Xác nhận xác minh"
+                        cancelText="Hủy bỏ"
+                        onConfirm={() => handleApproveDocument('driverLicense')}
+                      >
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="flex items-center gap-2 shadow-sm"
+                          disabled={verifyDocumentMutation.isPending}
+                        >
+                          <MdOutlineVerified className="h-4 w-4" />
+                          Xác minh
+                        </Button>
+                      </ConfirmDialog>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="shadow-sm"
+                        onClick={() => handleOpenRejectDialog('driverLicense')}
+                        disabled={verifyDocumentMutation.isPending}
+                      >
+                        <MdClose className="h-4 w-4" />
+                        Từ chối
+                      </Button>
+                    </div>
                   )}
                 </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Card GPLX */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="pb-3">
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <span>Giấy phép lái xe</span>
-                {getStatusBadge(userData.driverLicense?.verificationStatus)}
-              </CardTitle>
-              {!isDriverLicenseVerified && (
-                <div className="flex gap-2">
-                  <ConfirmDialog
-                    title="Xác minh Giấy phép lái xe"
-                    description="Bạn có chắc chắn muốn xác minh Giấy phép lái xe của tài xế này?"
-                    confirmText="Xác nhận xác minh"
-                    cancelText="Hủy bỏ"
-                    onConfirm={() => handleApproveDocument('driverLicense')}
-                  >
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="flex items-center gap-2 shadow-sm"
-                      disabled={verifyDocumentMutation.isPending}
-                    >
-                      <MdOutlineVerified className="h-4 w-4" />
-                      Xác minh
-                    </Button>
-                  </ConfirmDialog>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="shadow-sm"
-                    onClick={() => handleOpenRejectDialog('driverLicense')}
-                    disabled={verifyDocumentMutation.isPending}
-                  >
-                    <MdClose className="h-4 w-4" />
-                    Từ chối
-                  </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">
+                      Số GPLX
+                    </h4>
+                    <p className="font-medium text-lg">
+                      {userData.driverLicense.licenseNumber || '---'}
+                    </p>
+                  </div>
                 </div>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-muted-foreground">
-                  Số GPLX
-                </h4>
-                <p className="font-medium text-lg">
-                  {userData.driverLicense?.licenseNumber || '---'}
-                </p>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-muted-foreground">
-                  Ảnh mặt trước
-                </h4>
-                <div className="relative aspect-video rounded-lg overflow-hidden border">
-                  {renderImageWithZoom(
-                    userData.driverLicense?.frontImage,
-                    'Ảnh mặt trước GPLX'
-                  )}
-                </div>
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">
+                      Ảnh mặt trước
+                    </h4>
+                    <div className="relative aspect-video rounded-lg overflow-hidden border">
+                      {renderImageWithZoom(
+                        userData.driverLicense.frontImage,
+                        'Ảnh mặt trước GPLX'
+                      )}
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-muted-foreground">
-                  Ảnh mặt sau
-                </h4>
-                <div className="relative aspect-video rounded-lg overflow-hidden border">
-                  {renderImageWithZoom(
-                    userData.driverLicense?.backImage,
-                    'Ảnh mặt sau GPLX'
-                  )}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">
+                      Ảnh mặt sau
+                    </h4>
+                    <div className="relative aspect-video rounded-lg overflow-hidden border">
+                      {renderImageWithZoom(
+                        userData.driverLicense.backImage,
+                        'Ảnh mặt sau GPLX'
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Vehicles Section */}
-      <Card className="hover:shadow-md transition-shadow">
-        <CardHeader>
-          <CardTitle className="text-lg">Danh sách phương tiện</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {userData.vehicles?.length ? (
+      {userData.vehicles?.length > 0 && (
+        <Card className="hover:shadow-md transition-shadow">
+          <CardHeader>
+            <CardTitle className="text-lg">Danh sách phương tiện</CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="space-y-6">
               {userData.vehicles.map((vehicle: Vehicle) => (
                 <div key={vehicle._id} className="border rounded-lg p-4">
@@ -620,11 +630,18 @@ export default function DriverTab({ userData, refetch }: DriverTabProps) {
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-muted-foreground">Không có phương tiện nào.</p>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Thông báo khi không có dữ liệu */}
+      {!hasDataToVerify && (
+        <div className="p-4 bg-muted/50 rounded-lg text-center">
+          <p className="text-muted-foreground">
+            Không có thông tin giấy tờ hoặc phương tiện để xác minh.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
