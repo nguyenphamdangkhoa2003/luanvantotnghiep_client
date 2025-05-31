@@ -14,6 +14,7 @@ interface Trip {
   userId: {
     name: string
     avatar: string
+    averageRating: number
   }
   name: string
   waypoints: {

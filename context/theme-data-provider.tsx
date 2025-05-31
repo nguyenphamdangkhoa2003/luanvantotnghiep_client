@@ -1,36 +1,52 @@
 'use client'
+
 import setGlobalColorTheme from '@/lib/theme-colors'
 import { ThemeColors, ThemeColorStateParams } from '@/types/theme-types'
 import { useTheme } from 'next-themes'
-import { ThemeProviderProps } from 'next-themes'
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
 const ThemeContext = createContext<ThemeColorStateParams>(
   {} as ThemeColorStateParams
 )
 
-export default function ThemeDataProvider({ children }: ThemeProviderProps) {
-  const getSavedThemeColor = () => {
+const availableThemeColors = [
+  'Blue',
+  'Zinc',
+  'Rose',
+  'Green',
+  'Orange',
+] as const
+
+export default function ThemeDataProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const getSavedThemeColor = (): ThemeColors => {
     try {
-      return (localStorage.getItem('themeColor') as ThemeColors) || 'Zinc'
+      const savedColor = localStorage.getItem('themeColor') as ThemeColors
+      return availableThemeColors.includes(savedColor) ? savedColor : 'Blue'
     } catch (error) {
-      'Zinc' as ThemeColors
+      console.warn('Error reading themeColor from localStorage:', error)
+      return 'Blue'
     }
   }
 
   const [themeColor, setThemeColor] = useState<ThemeColors>(
-    getSavedThemeColor() as ThemeColors
+    getSavedThemeColor()
   )
   const [isMounted, setIsMounted] = useState(false)
   const { theme } = useTheme()
 
   useEffect(() => {
+    if (!availableThemeColors.includes(themeColor)) {
+      console.warn(`Invalid themeColor: ${themeColor}, defaulting to Blue`)
+      setThemeColor('Blue')
+      return
+    }
     localStorage.setItem('themeColor', themeColor)
     setGlobalColorTheme(theme as 'light' | 'dark', themeColor)
-
-    if (!isMounted) {
-      setIsMounted(true)
-    }
+    setIsMounted(true)
   }, [themeColor, theme])
 
   if (!isMounted) {
@@ -45,5 +61,9 @@ export default function ThemeDataProvider({ children }: ThemeProviderProps) {
 }
 
 export function useThemeContext() {
-  return useContext(ThemeContext)
+  const context = useContext(ThemeContext)
+  if (!context) {
+    throw new Error('useThemeContext must be used within a ThemeDataProvider')
+  }
+  return context
 }
