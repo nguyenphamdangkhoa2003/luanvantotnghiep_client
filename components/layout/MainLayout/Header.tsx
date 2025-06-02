@@ -44,13 +44,13 @@ const Header = () => {
         <Link href="/" className="flex items-center space-x-1">
           <Logo
             width="200"
-            height="auto"
+            height="100%"
             className="md:block hidden"
             fill="var(--primary)"
           />
           <Logo
             width="150"
-            height="auto"
+            height="100%"
             className="md:hidden block"
             fill="var(--primary)"
           />

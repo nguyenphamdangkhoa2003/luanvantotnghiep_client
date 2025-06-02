@@ -205,7 +205,7 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       fetchSuggestions(pickupQuery, setPickupSuggestions)
-    }, 100)
+    }, 300)
     return () => clearTimeout(timeoutId)
   }, [pickupQuery])
 
@@ -213,7 +213,7 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       fetchSuggestions(dropoffQuery, setDropoffSuggestions)
-    }, 100)
+    }, 300)
     return () => clearTimeout(timeoutId)
   }, [dropoffQuery])
 

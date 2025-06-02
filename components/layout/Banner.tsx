@@ -11,7 +11,7 @@ const Banner = () => {
        baseProfile="tiny"
         fill="var(--primary-foreground)"
         width="100%"
-        height="auto" 
+        height="100%" 
         viewBox="0 0 2000 857"
         preserveAspectRatio="xMidYMid meet" 
         stroke="var(--primary)"
