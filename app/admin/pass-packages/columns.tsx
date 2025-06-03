@@ -14,18 +14,14 @@ import { MoreHorizontal } from 'lucide-react'
 import { IoTrash } from 'react-icons/io5'
 import { FaEdit } from 'react-icons/fa'
 import { Button } from '@/components/ui/button'
-import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/dialog/ConfirmDialog'
-import { formatVietnamDateTime } from '@/utils'
 
 export interface PassPackageType {
   _id: string
   name: string
-  duration: number
+  acceptRequests: number
   price: number
-  description?: string
-  createdAt: string
-  updatedAt: string
+  durationDays: number
 }
 
 export const createColumns = (
@@ -58,72 +54,36 @@ export const createColumns = (
   {
     accessorKey: 'name',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Tên gói" />
+      <DataTableColumnHeader column={column} title="Loại gói" />
     ),
     cell: ({ row }) => row.original.name || 'N/A',
   },
   {
-    accessorKey: 'duration',
+    accessorKey: 'acceptRequests',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Thời hạn (ngày)" />
+      <DataTableColumnHeader column={column} title="Số lượng yêu cầu" />
     ),
-    cell: ({ row }) => row.original.duration || 'N/A',
+    cell: ({ row }) => row.original.acceptRequests || 'N/A',
   },
   {
     accessorKey: 'price',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Giá (VND)" />
+      <DataTableColumnHeader column={column} title="Giá (VNĐ)" />
     ),
     cell: ({ row }) => row.original.price.toLocaleString('vi-VN') || 'N/A',
   },
   {
-    accessorKey: 'description',
+    accessorKey: 'durationDays',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Mô tả" />
+      <DataTableColumnHeader column={column} title="Thời hạn (ngày)" />
     ),
-    cell: ({ row }) => row.original.description || 'N/A',
-  },
-  {
-    accessorKey: 'createdAt',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Ngày tạo" />
-    ),
-    cell: ({ row }) => {
-      const date = new Date(row.original.createdAt)
-      return formatVietnamDateTime(date.toISOString())
-    },
-    sortingFn: (rowA, rowB) => {
-      const dateA = new Date(rowA.original.createdAt).getTime()
-      const dateB = new Date(rowB.original.createdAt).getTime()
-      return dateA - dateB
-    },
-  },
-  {
-    accessorKey: 'updatedAt',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Ngày cập nhật" />
-    ),
-    cell: ({ row }) => {
-      const date = new Date(row.original.updatedAt)
-      return formatVietnamDateTime(date.toISOString())
-    },
-    sortingFn: (rowA, rowB) => {
-      const dateA = new Date(rowA.original.updatedAt).getTime()
-      const dateB = new Date(rowB.original.updatedAt).getTime()
-      return dateA - dateB
-    },
+    cell: ({ row }) => row.original.durationDays || 'N/A',
   },
   {
     accessorKey: 'actions',
-    cell: ({ row }) => {
-      const handleDelete = () => {
-        try {
-          // Xóa được xử lý trong page.tsx qua refetch
-          toast.success('Xóa gói pass thành công')
-          refetch()
-        } catch (error) {
-          toast.error('Xóa gói pass thất bại')
-        }
+    cell: ({ row, table }) => {
+      const meta = table.options.meta as {
+        deletePackage?: (packageName: string) => void
       }
 
       return (
@@ -156,10 +116,11 @@ export const createColumns = (
                 title="Bạn có chắc muốn xóa gói pass này?"
                 description="Hành động này không thể hoàn tác. Gói pass sẽ bị xóa vĩnh viễn."
                 confirmText="Xóa"
-                // onConfirm={() => {
-                //   row.table.options.meta?.deletePackage(row.original._id)
-                //   handleDelete()
-                // }}
+                onConfirm={() => {
+                  if (meta?.deletePackage) {
+                    meta.deletePackage(row.original.name)
+                  }
+                }}
               >
                 <div className="flex gap-2 items-center cursor-pointer text-red-500">
                   <IoTrash className="text-red-500" />

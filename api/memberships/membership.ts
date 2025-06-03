@@ -1,0 +1,59 @@
+import API from '../api'
+
+type PurchaseMembershipType = {
+  packageType: string
+}
+
+type CreatePackageType = {
+  name: string
+  acceptRequests: number
+  price: number
+  durationDays: number
+}
+
+type UpdatePackageType = {
+  name?: string
+  acceptRequests?: number
+  price?: number
+  durationDays?: number
+}
+
+// Purchase membership
+export const purchaseMembershipMutationFn = async (
+  data: PurchaseMembershipType
+) => {
+  return await API.post('/membership/purchase', data)
+}
+
+// Handle VNPay callback
+export const handleVnpayCallbackQueryFn = async (vnpayData: any) => {
+  return await API.get('/membership/vnpay-callback', { params: vnpayData })
+}
+
+// Get membership info
+export const getMembershipInfoQueryFn = async (userId: string) => {
+  return await API.get(`/membership/info/${userId}`)
+}
+
+// Admin: Get all packages
+export const getAllPackagesQueryFn = async () => {
+  return await API.get('/membership/packages')
+}
+
+// Admin: Create package
+export const createPackageMutationFn = async (data: CreatePackageType) => {
+  return await API.post('/membership/packages', data)
+}
+
+// Admin: Update package 
+export const updatePackageMutationFn = async (
+  packageName: string,
+  data: UpdatePackageType
+) => {
+  return await API.post(`/membership/packages/${packageName}`, data)
+}
+
+// Admin: Delete package
+export const deletePackageMutationFn = async (packageName: string) => {
+  return await API.delete(`/membership/packages/${packageName}`)
+}

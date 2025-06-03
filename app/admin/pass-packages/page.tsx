@@ -1,8 +1,8 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import {
@@ -18,92 +18,125 @@ import { AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PassPackageType } from './columns'
+import {
+  getAllPackagesQueryFn,
+  createPackageMutationFn,
+  updatePackageMutationFn,
+  deletePackageMutationFn,
+} from '@/api/memberships/membership'
 
 export default function PassPackagesPage() {
-  const [isPending, setIsPending] = useState(true)
-  const [isError, setIsError] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [passPackages, setPassPackages] = useState<PassPackageType[]>([])
-  const [refetchTrigger, setRefetchTrigger] = useState(0)
+  const queryClient = useQueryClient()
   const [openDialog, setOpenDialog] = useState(false)
   const [editingPackage, setEditingPackage] = useState<PassPackageType | null>(
     null
   )
   const [formData, setFormData] = useState({
     name: '',
-    duration: '',
+    acceptRequests: '',
     price: '',
-    description: '',
+    durationDays: '',
   })
   const [errors, setErrors] = useState<Partial<typeof formData>>({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Mock data
-  const initialMockData: PassPackageType[] = [
-    {
-      _id: '1',
-      name: 'Gói Tháng',
-      duration: 30,
-      price: 500000,
-      description: 'Truy cập trong 30 ngày',
-      createdAt: '2025-05-01T10:00:00Z',
-      updatedAt: '2025-05-01T10:00:00Z',
-    },
-    {
-      _id: '2',
-      name: 'Gói Năm',
-      duration: 365,
-      price: 5000000,
-      description: 'Truy cập cả năm với ưu đãi',
-      createdAt: '2025-04-20T09:00:00Z',
-      updatedAt: '2025-04-20T09:00:00Z',
-    },
-    {
-      _id: '3',
-      name: 'Gói Tuần',
-      duration: 7,
-      price: 150000,
-      description: 'Truy cập ngắn hạn 7 ngày',
-      createdAt: '2025-03-15T08:00:00Z',
-      updatedAt: '2025-03-15T08:00:00Z',
-    },
-  ]
-
-  // Tải mock data
-  useEffect(() => {
-    setIsPending(true)
-    const timeout = setTimeout(() => {
-      try {
-        setPassPackages(initialMockData)
-        setIsPending(false)
-      } catch (err) {
-        setIsError(true)
-        setError('Không tải được danh sách gói pass')
-        setIsPending(false)
+  // Fetch all packages
+  const {
+    data: apiResponse,
+    isPending,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ['pass-packages'],
+    queryFn: async () => {
+      const response = await getAllPackagesQueryFn()
+      return {
+        ...response,
+        data: response.data.map((pkg: any) => ({
+          _id: pkg._id,
+          name: pkg.name,
+          acceptRequests: pkg.acceptRequests,
+          price: pkg.price,
+          durationDays: pkg.durationDays,
+        })),
       }
-    }, 1000)
-    return () => clearTimeout(timeout)
-  }, [refetchTrigger])
+    },
+  })
+  const passPackages = apiResponse?.data || []
 
-  const refetch = () => {
-    setRefetchTrigger((prev) => prev + 1)
+  // Create package mutation
+  const createPackageMutation = useMutation({
+    mutationFn: createPackageMutationFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pass-packages'] })
+      toast.success('Tạo gói thành công')
+      resetForm()
+      setOpenDialog(false)
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.data?.message || 'Lỗi tạo gói')
+    },
+  })
+
+  // Update package mutation
+  const updatePackageMutation = useMutation({
+    mutationFn: ({ packageName, data }: { packageName: string; data: any }) =>
+      updatePackageMutationFn(packageName, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pass-packages'] })
+      toast.success('Cập nhật gói thành công')
+      resetForm()
+      setOpenDialog(false)
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.data?.message || 'Lỗi cập nhật gói')
+    },
+  })
+
+  // Delete package mutation
+  const deletePackageMutation = useMutation({
+    mutationFn: deletePackageMutationFn,
+    onSuccess: (response) => {
+      console.log('Delete response:', response)
+      queryClient.invalidateQueries({ queryKey: ['pass-packages'] })
+      toast.success('Xóa gói thành công')
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.data?.message || 'Lỗi xóa gói')
+    },
+  })
+
+  const resetForm = () => {
+    setEditingPackage(null)
+    setFormData({
+      name: '',
+      acceptRequests: '',
+      price: '',
+      durationDays: '',
+    })
+    setErrors({})
   }
 
   const validateForm = (): boolean => {
     const newErrors: Partial<typeof formData> = {}
     if (!formData.name.trim()) newErrors.name = 'Tên gói là bắt buộc'
     if (
-      !formData.duration ||
-      isNaN(Number(formData.duration)) ||
-      Number(formData.duration) <= 0
+      !formData.acceptRequests ||
+      isNaN(Number(formData.acceptRequests)) ||
+      Number(formData.acceptRequests) <= 0
     )
-      newErrors.duration = 'Thời hạn phải là số dương'
+      newErrors.acceptRequests = 'Số yêu cầu phải là số dương'
     if (
       !formData.price ||
       isNaN(Number(formData.price)) ||
       Number(formData.price) <= 0
     )
       newErrors.price = 'Giá phải là số dương'
+    if (
+      !formData.durationDays ||
+      isNaN(Number(formData.durationDays)) ||
+      Number(formData.durationDays) <= 0
+    )
+      newErrors.durationDays = 'Thời hạn phải là số dương'
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -115,47 +148,24 @@ export default function PassPackagesPage() {
       return
     }
 
-    setIsSubmitting(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      const timestamp = new Date().toISOString()
-      if (editingPackage) {
-        setPassPackages((prev) =>
-          prev.map((pkg) =>
-            pkg._id === editingPackage._id
-              ? {
-                  ...pkg,
-                  name: formData.name,
-                  duration: Number(formData.duration),
-                  price: Number(formData.price),
-                  description: formData.description || undefined,
-                  updatedAt: timestamp,
-                }
-              : pkg
-          )
-        )
-        toast.success('Cập nhật gói pass thành công')
-      } else {
-        const newId = (passPackages.length + 1).toString()
-        const newPackage: PassPackageType = {
-          _id: newId,
-          name: formData.name,
-          duration: Number(formData.duration),
-          price: Number(formData.price),
-          description: formData.description || undefined,
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        }
-        setPassPackages((prev) => [...prev, newPackage])
-        toast.success('Tạo gói pass thành công')
+      const packageData = {
+        name: formData.name,
+        acceptRequests: Number(formData.acceptRequests),
+        price: Number(formData.price),
+        durationDays: Number(formData.durationDays),
       }
-      setFormData({ name: '', duration: '', price: '', description: '' })
-      setEditingPackage(null)
-      setOpenDialog(false)
+
+      if (editingPackage) {
+        await updatePackageMutation.mutateAsync({
+          packageName: editingPackage.name,
+          data: packageData,
+        })
+      } else {
+        await createPackageMutation.mutateAsync(packageData)
+      }
     } catch (error) {
-      toast.error('Lưu gói pass thất bại')
-    } finally {
-      setIsSubmitting(false)
+      toast.error('Lưu gói thất bại')
     }
   }
 
@@ -171,19 +181,19 @@ export default function PassPackagesPage() {
       setEditingPackage(pkg)
       setFormData({
         name: pkg.name,
-        duration: pkg.duration.toString(),
+        acceptRequests: pkg.acceptRequests.toString(),
         price: pkg.price.toString(),
-        description: pkg.description || '',
+        durationDays: pkg.durationDays.toString(),
       })
     } else {
-      setEditingPackage(null)
-      setFormData({ name: '', duration: '', price: '', description: '' })
+      resetForm()
     }
     setOpenDialog(true)
   }
 
-  const deletePackage = (id: string) => {
-    setPassPackages((prev) => prev.filter((pkg) => pkg._id !== id))
+  const deletePackage = (packageName: string) => {
+    console.log('Deleting package:', packageName)
+    deletePackageMutation.mutate(packageName)
   }
 
   if (isPending) {
@@ -198,7 +208,7 @@ export default function PassPackagesPage() {
           </div>
           <div className="space-y-4">
             <div className="flex gap-4">
-              {Array(7)
+              {Array(10)
                 .fill(0)
                 .map((_, i) => (
                   <Skeleton key={`header-${i}`} className="h-10 flex-1" />
@@ -208,7 +218,7 @@ export default function PassPackagesPage() {
               .fill(0)
               .map((_, rowIndex) => (
                 <div key={`row-${rowIndex}`} className="flex gap-4">
-                  {Array(7)
+                  {Array(10)
                     .fill(0)
                     .map((_, cellIndex) => (
                       <Skeleton
@@ -235,7 +245,7 @@ export default function PassPackagesPage() {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Lỗi</AlertTitle>
             <AlertDescription>
-              {error || 'Không tải được danh sách gói pass'}
+              {error?.message || 'Không tải được danh sách gói pass'}
             </AlertDescription>
           </Alert>
         </div>
@@ -256,19 +266,12 @@ export default function PassPackagesPage() {
           open={openDialog}
           onOpenChange={(open) => {
             if (!open) {
-              setEditingPackage(null)
-              setFormData({
-                name: '',
-                duration: '',
-                price: '',
-                description: '',
-              })
-              setErrors({})
+              resetForm()
             }
             setOpenDialog(open)
           }}
         >
-          <DialogContent className='max-w-3xl'>
+          <DialogContent className="max-w-3xl">
             <DialogHeader>
               <DialogTitle>
                 {editingPackage ? 'Sửa Gói Pass' : 'Thêm Gói Pass'}
@@ -281,27 +284,35 @@ export default function PassPackagesPage() {
                   id="name"
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="VD: Gói Tháng"
-                  disabled={isSubmitting}
+                  placeholder="VD: Enterprise"
+                  disabled={
+                    createPackageMutation.isPending ||
+                    updatePackageMutation.isPending
+                  }
                 />
                 {errors.name && (
                   <p className="text-sm text-destructive">{errors.name}</p>
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="duration">Thời Hạn (ngày)</Label>
+                <Label htmlFor="acceptRequests">Số Yêu Cầu</Label>
                 <Input
-                  id="duration"
+                  id="acceptRequests"
                   type="number"
-                  value={formData.duration}
+                  value={formData.acceptRequests}
                   onChange={(e) =>
-                    handleInputChange('duration', e.target.value)
+                    handleInputChange('acceptRequests', e.target.value)
                   }
-                  placeholder="VD: 30"
-                  disabled={isSubmitting}
+                  placeholder="VD: 500"
+                  disabled={
+                    createPackageMutation.isPending ||
+                    updatePackageMutation.isPending
+                  }
                 />
-                {errors.duration && (
-                  <p className="text-sm text-destructive">{errors.duration}</p>
+                {errors.acceptRequests && (
+                  <p className="text-sm text-destructive">
+                    {errors.acceptRequests}
+                  </p>
                 )}
               </div>
               <div className="space-y-2">
@@ -312,35 +323,57 @@ export default function PassPackagesPage() {
                   value={formData.price}
                   onChange={(e) => handleInputChange('price', e.target.value)}
                   placeholder="VD: 500000"
-                  disabled={isSubmitting}
+                  disabled={
+                    createPackageMutation.isPending ||
+                    updatePackageMutation.isPending
+                  }
                 />
                 {errors.price && (
                   <p className="text-sm text-destructive">{errors.price}</p>
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Mô Tả (không bắt buộc)</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
+                <Label htmlFor="durationDays">Thời Hạn (ngày)</Label>
+                <Input
+                  id="durationDays"
+                  type="number"
+                  value={formData.durationDays}
                   onChange={(e) =>
-                    handleInputChange('description', e.target.value)
+                    handleInputChange('durationDays', e.target.value)
                   }
-                  placeholder="VD: Truy cập trong 30 ngày"
-                  disabled={isSubmitting}
+                  placeholder="VD: 30"
+                  disabled={
+                    createPackageMutation.isPending ||
+                    updatePackageMutation.isPending
+                  }
                 />
+                {errors.durationDays && (
+                  <p className="text-sm text-destructive">
+                    {errors.durationDays}
+                  </p>
+                )}
               </div>
               <DialogFooter>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setOpenDialog(false)}
-                  disabled={isSubmitting}
+                  disabled={
+                    createPackageMutation.isPending ||
+                    updatePackageMutation.isPending
+                  }
                 >
                   Hủy
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting
+                <Button
+                  type="submit"
+                  disabled={
+                    createPackageMutation.isPending ||
+                    updatePackageMutation.isPending
+                  }
+                >
+                  {createPackageMutation.isPending ||
+                  updatePackageMutation.isPending
                     ? editingPackage
                       ? 'Đang cập nhật...'
                       : 'Đang tạo...'
@@ -353,7 +386,12 @@ export default function PassPackagesPage() {
           </DialogContent>
         </Dialog>
         <DataTable
-          columns={createColumns(refetch, setEditingPackage, setOpenDialog)}
+          columns={createColumns(
+            () =>
+              queryClient.invalidateQueries({ queryKey: ['pass-packages'] }),
+            (pkg) => handleOpenDialog(pkg),
+            () => setOpenDialog(true)
+          )}
           data={passPackages}
           meta={{ deletePackage }}
         />

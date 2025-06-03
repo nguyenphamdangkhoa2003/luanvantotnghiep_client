@@ -28,11 +28,15 @@ import { PassPackageType } from './columns'
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
+  meta?: {
+    deletePackage?: (packageName: string) => void
+  }
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  meta,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [rowSelection, setRowSelection] = React.useState({})
@@ -56,10 +60,11 @@ export function DataTable<TData, TValue>({
       columnVisibility,
       globalFilter: searchTerm,
     },
+    meta,
     globalFilterFn: (row, columnId, filterValue) => {
-      const PassPackage = row.original as PassPackageType
+      const passPackage = row.original as PassPackageType
       const search = filterValue.toLowerCase().replace(/\s+/g, '')
-      return PassPackage.name.toLowerCase().includes(search)
+      return passPackage.name.toLowerCase().includes(search)
     },
   })
 
@@ -71,7 +76,7 @@ export function DataTable<TData, TValue>({
     <div>
       <div className="flex items-center justify-between mb-4">
         <Input
-          placeholder="Search by driver name, driver ID, or pass type..."
+          placeholder="Tìm kiếm theo tên gói..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="max-w-sm"
@@ -79,17 +84,7 @@ export function DataTable<TData, TValue>({
         <div className="flex items-center justify-end px-2">
           <DataTableViewOptions
             table={table}
-            filterConfig={[
-              {
-                columnId: 'status',
-                title: 'Status',
-                options: [
-                  { value: 'active', label: 'Active' },
-                  { value: 'inactive', label: 'Inactive' },
-                  { value: 'expired', label: 'Expired' },
-                ],
-              },
-            ]}
+            filterConfig={[]} // Loại bỏ bộ lọc status
           />
         </div>
       </div>
@@ -135,7 +130,7 @@ export function DataTable<TData, TValue>({
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  No results.
+                  Không có kết quả.
                 </TableCell>
               </TableRow>
             )}
