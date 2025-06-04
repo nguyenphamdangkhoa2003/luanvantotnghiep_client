@@ -161,7 +161,6 @@ export const createColumns = (
     cell: ({ row }) => {
       const router = useRouter()
       const toggleStatusMutation = useMutation({
-        // mutationFn: toggleStatusDriverPassMutationFn,
         onSuccess: () => {
           toast.success('Status updated successfully')
           refetch()
@@ -170,7 +169,6 @@ export const createColumns = (
       })
 
       const deleteDriverPassMutation = useMutation({
-        // mutationFn: deleteDriverPassMutationFn,
         onSuccess: () => {
           toast.success('Driver pass deleted successfully')
           refetch()

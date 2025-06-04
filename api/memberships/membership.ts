@@ -35,7 +35,6 @@ export const getMembershipInfoQueryFn = async (userId: string) => {
   return await API.get(`/membership/info/${userId}`)
 }
 
-// Admin: Get all packages
 export const getAllPackagesQueryFn = async () => {
   return await API.get('/membership/packages')
 }
@@ -45,7 +44,7 @@ export const createPackageMutationFn = async (data: CreatePackageType) => {
   return await API.post('/membership/packages', data)
 }
 
-// Admin: Update package 
+// Admin: Update package
 export const updatePackageMutationFn = async (
   packageName: string,
   data: UpdatePackageType
@@ -56,4 +55,14 @@ export const updatePackageMutationFn = async (
 // Admin: Delete package
 export const deletePackageMutationFn = async (packageName: string) => {
   return await API.delete(`/membership/packages/${packageName}`)
+}
+
+// Get all memberships
+export const getAllMembershipsQueryFn = async () => {
+  return await API.get('/membership')
+}
+
+// Get active membership for authenticated user
+export const getActiveMembershipQueryFn = async () => {
+  return await API.get('/membership/me')
 }
