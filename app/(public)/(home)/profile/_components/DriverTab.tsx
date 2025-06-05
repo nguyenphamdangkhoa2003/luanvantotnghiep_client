@@ -1,6 +1,8 @@
-
 'use client'
 
+import React from 'react'
+import { AxiosResponse } from 'axios'
+import { QueryObserverResult, RefetchOptions } from '@tanstack/react-query'
 import {
   Card,
   CardContent,
@@ -48,18 +50,18 @@ interface User {
 
 interface DriverTabProps {
   user: User
-  refetchData: () => Promise<void>
+  refetchData: (
+    options?: RefetchOptions
+  ) => Promise<QueryObserverResult<AxiosResponse<any, any>, Error>>
 }
 
 export function DriverTab({ user, refetchData }: DriverTabProps) {
-  console.log('DriverTab user data:', user) // Debug log
-  console.log('DriverTab vehicle data:', user.vehicles?.[0]) // Debug log
-
   const isDriverInfoApproved =
     user.identityDocument?.verificationStatus === 'approved' &&
     user.driverLicense?.verificationStatus === 'approved'
 
-  const isVehicleApproved = user.vehicles?.[0]?.verificationStatus === 'approved'
+  const isVehicleApproved =
+    user.vehicles?.[0]?.verificationStatus === 'approved'
 
   const getStatusBadge = (status?: 'approved' | 'rejected' | 'pending') => {
     switch (status) {
@@ -403,7 +405,8 @@ export function DriverTab({ user, refetchData }: DriverTabProps) {
                   plateNumber: user.vehicles?.[0]?.licensePlate,
                   brand: user.vehicles?.[0]?.model,
                   seats: user.vehicles?.[0]?.seats,
-                  registrationDocument: user.vehicles?.[0]?.registrationDocument,
+                  registrationDocument:
+                    user.vehicles?.[0]?.registrationDocument,
                   insuranceDocument: user.vehicles?.[0]?.insuranceDocument,
                   verificationStatus: user.vehicles?.[0]?.verificationStatus,
                 }}
@@ -423,4 +426,3 @@ export function DriverTab({ user, refetchData }: DriverTabProps) {
     </Card>
   )
 }
-

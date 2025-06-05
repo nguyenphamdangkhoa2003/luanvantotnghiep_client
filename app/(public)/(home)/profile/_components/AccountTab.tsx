@@ -64,7 +64,7 @@ export function AccountTab({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex justify-between items-center p-4 border-gray-200 dark:border-gray-700">
             <div>
               <h4 className="font-medium text-gray-900 dark:text-gray-100">
                 Email Address

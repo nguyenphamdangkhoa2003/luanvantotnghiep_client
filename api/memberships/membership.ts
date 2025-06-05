@@ -64,5 +64,12 @@ export const getAllMembershipsQueryFn = async () => {
 
 // Get active membership for authenticated user
 export const getActiveMembershipQueryFn = async () => {
-  return await API.get('/membership/me')
+  try {
+    return await API.get('/membership/me')
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      return { data: null }
+    }
+    throw error
+  }
 }

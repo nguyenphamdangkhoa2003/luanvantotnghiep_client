@@ -1,12 +1,12 @@
-
 'use client'
 
-import { ChevronRight, Home } from 'lucide-react'
+import { ChevronRight, Home, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import TripCard from '@/components/card/TripCard'
 import SearchTrip from '@/components/form/SearchTripForm'
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { searchRoutesQueryFn } from '@/api/routes/route'
 
 // Define Trip type based on TripCardProps from TripCard.tsx
 interface Trip {
@@ -48,45 +48,94 @@ interface Trip {
 export default function BookingPage() {
   const [trips, setTrips] = useState<Trip[]>([])
   const searchParams = useSearchParams()
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Hàm tải kết quả từ API
+  const loadSearchResults = async (searchData: any) => {
+    setIsLoading(true)
+    try {
+      const response = await searchRoutesQueryFn({
+        startCoords: searchData.pickupCoords,
+        endCoords: searchData.dropoffCoords,
+        date: searchData.date,
+        seatsAvailable: searchData.passengers,
+      })
+
+      setTrips(response.data)
+      localStorage.setItem('searchResults', JSON.stringify(response.data))
+    } catch (error) {
+      console.error('Error loading search results:', error)
+      setTrips([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const pickup = searchParams.get('pickup')
-    const dropoff = searchParams.get('dropoff')
-    const date = searchParams.get('date')
-    const passengers = searchParams.get('passengers')
+    const loadInitialData = async () => {
+      // Ưu tiên lấy từ URL params trước
+      const pickup = searchParams.get('pickup')
+      const dropoff = searchParams.get('dropoff')
+      const date = searchParams.get('date')
+      const passengers = searchParams.get('passengers')
+      const pickupCoords = searchParams.get('pickupCoords')
+      const dropoffCoords = searchParams.get('dropoffCoords')
 
-    // Load stored results from localStorage
-    try {
-      const storedResults = localStorage.getItem('searchResults')
-      if (storedResults) {
-        const parsedResults = JSON.parse(storedResults)
-        setTrips(parsedResults)
-        localStorage.removeItem('searchResults')
+      // Nếu có đủ params từ URL
+      if (pickup && dropoff && date && passengers) {
+        const searchData = {
+          pickup,
+          dropoff,
+          date,
+          passengers: Number(passengers) || 1,
+          pickupCoords: pickupCoords ? JSON.parse(pickupCoords) : null,
+          dropoffCoords: dropoffCoords ? JSON.parse(dropoffCoords) : null,
+        }
+
+        // Lưu vào localStorage
+        localStorage.setItem('searchTripForm', JSON.stringify(searchData))
+
+        // Tải kết quả
+        await loadSearchResults(searchData)
       }
-    } catch (error) {
-      console.error('Error parsing searchResults from localStorage:', error)
+      // Nếu không có params từ URL nhưng có dữ liệu trong localStorage
+      else {
+        const storedForm = localStorage.getItem('searchTripForm')
+        if (storedForm) {
+          const searchData = JSON.parse(storedForm)
+
+          // Kiểm tra xem có đủ dữ liệu để tìm kiếm không
+          if (
+            searchData.pickup &&
+            searchData.dropoff &&
+            searchData.date &&
+            searchData.passengers
+          ) {
+            // Tải kết quả
+            await loadSearchResults(searchData)
+
+            // Cập nhật URL để đồng bộ
+            const queryParams = new URLSearchParams({
+              pickup: searchData.pickup,
+              dropoff: searchData.dropoff,
+              date: searchData.date,
+              passengers: searchData.passengers.toString(),
+              pickupCoords: JSON.stringify(searchData.pickupCoords || {}),
+              dropoffCoords: JSON.stringify(searchData.dropoffCoords || {}),
+            }).toString()
+
+            window.history.replaceState(null, '', `?${queryParams}`)
+          }
+        }
+      }
     }
 
-    // Save search parameters to localStorage
-    if (pickup && dropoff && date && passengers) {
-      try {
-        localStorage.setItem(
-          'searchTripForm',
-          JSON.stringify({
-            pickup,
-            dropoff,
-            date,
-            passengers: Number.isNaN(parseInt(passengers)) ? 1 : parseInt(passengers),
-          })
-        )
-      } catch (error) {
-        console.error('Error saving searchTripForm to localStorage:', error)
-      }
-    }
+    loadInitialData()
   }, [searchParams])
 
   const handleSearchResults = (results: Trip[]) => {
     setTrips(results)
+    localStorage.setItem('searchResults', JSON.stringify(results))
   }
 
   return (
@@ -104,7 +153,10 @@ export default function BookingPage() {
           <Home className="w-4 h-4 mr-1" />
           Trang chủ
         </Link>
-        <ChevronRight className="w-4 h-4 mx-2 text-[var(--muted-foreground)]" aria-hidden="true" />
+        <ChevronRight
+          className="w-4 h-4 mx-2 text-[var(--muted-foreground)]"
+          aria-hidden="true"
+        />
         <span className="font-normal" aria-current="page">
           Kết quả tìm kiếm
         </span>
@@ -121,29 +173,35 @@ export default function BookingPage() {
       </div>
 
       {/* Trips List */}
-      <div className="space-y-4 max-w-3xl mx-auto">
-        <h2 className="text-xl font-bold text-[var(--foreground)]">
-          <span className="text-[var(--primary)]">Chuyến đi có sẵn</span>
-          <span className="text-[var(--muted-foreground)] text-base ml-2">
-            ({trips.length} kết quả)
-          </span>
-        </h2>
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--primary)]" />
+        </div>
+      ) : (
+        <div className="space-y-4 max-w-3xl mx-auto">
+          <h2 className="text-xl font-bold text-[var(--foreground)]">
+            <span className="text-[var(--primary)]">Chuyến đi có sẵn</span>
+            <span className="text-[var(--muted-foreground)] text-base ml-2">
+              ({trips.length} kết quả)
+            </span>
+          </h2>
 
-        {trips.length === 0 ? (
-          <div
-            className="text-[var(--destructive)] p-4 rounded bg-[var(--destructive)/10]"
-            role="alert"
-          >
-            <p>Không tìm thấy tuyến đường bạn muốn</p>
-          </div>
-        ) : (
-          <div className="grid gap-4">
-            {trips.map((trip, index) => (
-              <TripCard key={trip._id || `trip-${index}`} {...trip} />
-            ))}
-          </div>
-        )}
-      </div>
+          {trips.length === 0 ? (
+            <div
+              className="text-[var(--destructive)] p-4 rounded bg-[var(--destructive)/10]"
+              role="alert"
+            >
+              <p>Không tìm thấy tuyến đường bạn muốn</p>
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {trips.map((trip, index) => (
+                <TripCard key={trip._id || `trip-${index}`} {...trip} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

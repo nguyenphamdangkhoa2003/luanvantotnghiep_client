@@ -98,7 +98,7 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
   const [dropoffCoords, setDropoffCoords] = useState<Coordinates | null>(null)
   const [route, setRoute] = useState<any[]>([])
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(0)
-  const [isLoading, setIsLoading] = useState(false) // Thêm state cho loading
+  const [isLoading, setIsLoading] = useState(false)
 
   const router = useRouter()
   const pathname = usePathname()
@@ -224,21 +224,18 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
     }
   }, [pickupCoords, dropoffCoords, pathname])
 
-  // Save form data to localStorage
-  useEffect(() => {
-    const subscription = watch((values) => {
-      localStorage.setItem('searchTripForm', JSON.stringify(values))
-    })
-    return () => subscription.unsubscribe()
-  }, [watch])
-
   // Restore data from localStorage
   useEffect(() => {
     const storedData = localStorage.getItem('searchTripForm')
     if (storedData) {
       const parsedData = JSON.parse(storedData)
       Object.keys(parsedData).forEach((key: any) => {
-        setValue(key, parsedData[key])
+        if (key === 'pickupCoords' || key === 'dropoffCoords') {
+          if (key === 'pickupCoords') setPickupCoords(parsedData[key] || null)
+          if (key === 'dropoffCoords') setDropoffCoords(parsedData[key] || null)
+        } else {
+          setValue(key, parsedData[key])
+        }
       })
     }
   }, [setValue])
@@ -258,12 +255,11 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
   }, [dropoffOpen, watch])
 
   const onSubmit = async (data: FormData) => {
-    setIsLoading(true) // Bật trạng thái loading
+    setIsLoading(true)
     try {
-      // Prepare search data for API
       const searchData: SearchRouteType = {
-        startCoords: pickupCoords||undefined,
-        endCoords: dropoffCoords||undefined,
+        startCoords: pickupCoords || undefined,
+        endCoords: dropoffCoords || undefined,
         date: data.date,
         seatsAvailable: data.passengers,
       }
@@ -271,12 +267,28 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
       const response = await searchRoutesQueryFn(searchData)
       const searchResults = response.data
 
+      // Tạo query params với đầy đủ thông tin, bao gồm tọa độ
       const queryParams = new URLSearchParams({
         pickup: data.pickup,
         dropoff: data.dropoff,
         date: data.date,
         passengers: data.passengers.toString(),
+        pickupCoords: JSON.stringify(pickupCoords || {}),
+        dropoffCoords: JSON.stringify(dropoffCoords || {}),
       }).toString()
+
+      // Lưu toàn bộ dữ liệu tìm kiếm vào localStorage
+      localStorage.setItem(
+        'searchTripForm',
+        JSON.stringify({
+          pickup: data.pickup,
+          dropoff: data.dropoff,
+          date: data.date,
+          passengers: data.passengers,
+          pickupCoords,
+          dropoffCoords,
+        })
+      )
 
       if (pathname === '/') {
         localStorage.setItem('searchResults', JSON.stringify(searchResults))
@@ -286,7 +298,6 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
         if (onSearchResults) {
           onSearchResults(searchResults)
         }
-        localStorage.removeItem('searchTripForm')
       }
     } catch (error) {
       console.error('Error searching routes:', error)
@@ -294,7 +305,7 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
         onSearchResults([])
       }
     } finally {
-      setIsLoading(false) // Tắt trạng thái loading
+      setIsLoading(false)
     }
   }
 
@@ -577,7 +588,6 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
               <Button
                 type="submit"
                 className="bg-[var(--primary)] text-[var(--primary-foreground)] text-sm font-semibold px-8 py-3 rounded-lg shadow-md hover:opacity-90 transition-all w-full h-11"
-
               >
                 {isLoading ? (
                   <div className="flex items-center justify-center">

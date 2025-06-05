@@ -1,8 +1,10 @@
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '@/components/ui/button';
+'use client'
+
+import { useEffect } from 'react'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Button } from '@/components/ui/button'
 import {
   Form,
   FormControl,
@@ -11,8 +13,8 @@ import {
   FormLabel,
   FormMessage,
   FormDescription,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
 import {
   Loader2,
   UploadCloud,
@@ -20,13 +22,14 @@ import {
   Check,
   Clock,
   AlertCircle,
-} from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { toast } from 'sonner';
-import { useMutation } from '@tanstack/react-query';
-import { uploadDocumentMutationFn } from '@/api/users/user';
-import { Badge } from '@/components/ui/badge';
-import { useQueryClient } from '@tanstack/react-query';
+} from 'lucide-react'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { toast } from 'sonner'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { uploadDocumentMutationFn } from '@/api/users/user'
+import { Badge } from '@/components/ui/badge'
+import { AxiosResponse } from 'axios'
+import { QueryObserverResult, RefetchOptions } from '@tanstack/react-query'
 
 // Schema validation
 export const formSchema = z.object({
@@ -52,7 +55,7 @@ export const formSchema = z.object({
     .optional(),
   idNumber: z.string().min(1, 'Số giấy tờ tùy thân là bắt buộc'),
   licenseNumber: z.string().min(1, 'Số giấy phép lái xe là bắt buộc'),
-});
+})
 
 type DriverInfoFormProps = {
   userData: {
@@ -69,11 +72,13 @@ type DriverInfoFormProps = {
       verificationStatus: 'pending' | 'approved' | 'rejected'
     }
   }
-  refetch: () => Promise<void>
+  refetch: (
+    options?: RefetchOptions
+  ) => Promise<QueryObserverResult<AxiosResponse<any, any>, Error>>
 }
 
 export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
-  const queryClient = useQueryClient();
+  const queryClient = useQueryClient()
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -82,72 +87,72 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
     },
     mode: 'onSubmit',
     reValidateMode: 'onSubmit',
-  });
+  })
 
   useEffect(() => {
     form.reset({
       idNumber: userData.identityDocument?.documentNumber || '',
       licenseNumber: userData.driverLicense?.licenseNumber || '',
-    });
-  }, [userData, form]);
+    })
+  }, [userData, form])
 
   // Mutation for identity document upload
   const uploadIdentityMutation = useMutation({
     mutationFn: uploadDocumentMutationFn,
     onError: (error) => {
-      toast.error(error.message || 'Tải lên giấy tờ tùy thân thất bại.');
+      toast.error(error.message || 'Tải lên giấy tờ tùy thân thất bại.')
     },
     onSuccess: async () => {
-      toast.success('Gửi giấy tờ tùy thân thành công.');
-      queryClient.invalidateQueries({ queryKey: ['user'] });
-      await refetch();
+      toast.success('Gửi giấy tờ tùy thân thành công.')
+      queryClient.invalidateQueries({ queryKey: ['user'] })
+      await refetch()
     },
-  });
+  })
 
   // Mutation for driver license upload
   const uploadLicenseMutation = useMutation({
     mutationFn: uploadDocumentMutationFn,
     onError: (error) => {
-      toast.error(error.message || 'Tải lên giấy phép lái xe thất bại.');
+      toast.error(error.message || 'Tải lên giấy phép lái xe thất bại.')
     },
     onSuccess: async () => {
-      toast.success('Gửi giấy phép lái xe thành công.');
-      queryClient.invalidateQueries({ queryKey: ['user'] });
-      await refetch();
+      toast.success('Gửi giấy phép lái xe thành công.')
+      queryClient.invalidateQueries({ queryKey: ['user'] })
+      await refetch()
     },
-  });
+  })
 
   const handleFileUpload = async (
     fieldName: keyof z.infer<typeof formSchema>,
     file: File
   ) => {
     try {
-      const allowedMimes = ['image/jpeg', 'image/png', 'application/pdf'];
+      const allowedMimes = ['image/jpeg', 'image/png', 'application/pdf']
       if (!allowedMimes.includes(file.type)) {
-        throw new Error('Chỉ chấp nhận file JPEG, PNG hoặc PDF');
+        throw new Error('Chỉ chấp nhận file JPEG, PNG hoặc PDF')
       }
-      form.setValue(fieldName, file, { shouldValidate: true });
+      form.setValue(fieldName, file, { shouldValidate: true })
     } catch (error: any) {
       form.setError(fieldName, {
         type: 'manual',
         message: error.message || 'Xử lý file thất bại',
-      });
+      })
     }
-  };
+  }
 
   // Handle submit identity documents
   async function handleSubmitIdentity(values: z.infer<typeof formSchema>) {
     try {
       if (!values.idFrontImage || !values.idBackImage) {
-        throw new Error('Vui lòng tải lên cả 2 mặt giấy tờ');
+        throw new Error('Vui lòng tải lên cả 2 mặt giấy tờ')
       }
-      
+
       await uploadIdentityMutation.mutateAsync({
         type: 'identityDocument',
         documentNumber: values.idNumber,
         frontFile: values.idFrontImage,
         backFile: values.idBackImage,
-      });
+      })
     } catch (error) {
       // Error handled in mutation onError
     }
@@ -157,22 +162,22 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
   async function handleSubmitLicense(values: z.infer<typeof formSchema>) {
     try {
       if (!values.licenseFrontImage || !values.licenseBackImage) {
-        throw new Error('Vui lòng tải lên cả 2 mặt giấy phép lái xe');
+        throw new Error('Vui lòng tải lên cả 2 mặt giấy phép lái xe')
       }
-      
+
       await uploadLicenseMutation.mutateAsync({
         type: 'driverLicense',
         documentNumber: values.licenseNumber,
         frontFile: values.licenseFrontImage,
         backFile: values.licenseBackImage,
-      });
+      })
     } catch (error) {
       // Error handled in mutation onError
     }
   }
 
-  const isSubmittingIdentity = uploadIdentityMutation.isPending;
-  const isSubmittingLicense = uploadLicenseMutation.isPending;
+  const isSubmittingIdentity = uploadIdentityMutation.isPending
+  const isSubmittingLicense = uploadLicenseMutation.isPending
 
   const renderVerificationStatus = (
     status: 'pending' | 'approved' | 'rejected'
@@ -290,8 +295,8 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                                   type="button"
                                   className="absolute top-2 right-2 p-1 bg-gray-200 rounded-full hover:bg-gray-300"
                                   onClick={(e) => {
-                                    e.stopPropagation();
-                                    form.resetField('idFrontImage');
+                                    e.stopPropagation()
+                                    form.resetField('idFrontImage')
                                   }}
                                 >
                                   <X className="w-4 h-4 text-gray-600" />
@@ -329,9 +334,9 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                               type="file"
                               className="hidden"
                               onChange={(e) => {
-                                const file = e.target.files?.[0];
+                                const file = e.target.files?.[0]
                                 if (file) {
-                                  handleFileUpload('idFrontImage', file);
+                                  handleFileUpload('idFrontImage', file)
                                 }
                               }}
                               accept="image/jpeg,image/png,application/pdf"
@@ -390,8 +395,8 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                                   type="button"
                                   className="absolute top-2 right-2 p-1 bg-gray-200 rounded-full hover:bg-gray-300"
                                   onClick={(e) => {
-                                    e.stopPropagation();
-                                    form.resetField('idBackImage');
+                                    e.stopPropagation()
+                                    form.resetField('idBackImage')
                                   }}
                                 >
                                   <X className="w-4 h-4 text-gray-600" />
@@ -429,9 +434,9 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                               type="file"
                               className="hidden"
                               onChange={(e) => {
-                                const file = e.target.files?.[0];
+                                const file = e.target.files?.[0]
                                 if (file) {
-                                  handleFileUpload('idBackImage', file);
+                                  handleFileUpload('idBackImage', file)
                                 }
                               }}
                               accept="image/jpeg,image/png,application/pdf"
@@ -557,8 +562,8 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                                   type="button"
                                   className="absolute top-2 right-2 p-1 bg-gray-200 rounded-full hover:bg-gray-300"
                                   onClick={(e) => {
-                                    e.stopPropagation();
-                                    form.resetField('licenseFrontImage');
+                                    e.stopPropagation()
+                                    form.resetField('licenseFrontImage')
                                   }}
                                 >
                                   <X className="w-4 h-4 text-gray-600" />
@@ -596,9 +601,9 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                               type="file"
                               className="hidden"
                               onChange={(e) => {
-                                const file = e.target.files?.[0];
+                                const file = e.target.files?.[0]
                                 if (file) {
-                                  handleFileUpload('licenseFrontImage', file);
+                                  handleFileUpload('licenseFrontImage', file)
                                 }
                               }}
                               accept="image/jpeg,image/png,application/pdf"
@@ -657,8 +662,8 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                                   type="button"
                                   className="absolute top-2 right-2 p-1 bg-gray-200 rounded-full hover:bg-gray-300"
                                   onClick={(e) => {
-                                    e.stopPropagation();
-                                    form.resetField('licenseBackImage');
+                                    e.stopPropagation()
+                                    form.resetField('licenseBackImage')
                                   }}
                                 >
                                   <X className="w-4 h-4 text-gray-600" />
@@ -696,9 +701,9 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                               type="file"
                               className="hidden"
                               onChange={(e) => {
-                                const file = e.target.files?.[0];
+                                const file = e.target.files?.[0]
                                 if (file) {
-                                  handleFileUpload('licenseBackImage', file);
+                                  handleFileUpload('licenseBackImage', file)
                                 }
                               }}
                               accept="image/jpeg,image/png,application/pdf"
@@ -742,5 +747,5 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
         </Card>
       </form>
     </Form>
-  );
+  )
 }
