@@ -1,6 +1,6 @@
 import API from '../api'
 
-type CreateReviewType = {
+export type CreateReviewType = {
   revieweeId: string
   tripRequestId: string
   rating: number
