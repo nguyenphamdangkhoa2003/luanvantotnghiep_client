@@ -93,7 +93,7 @@ export default function ChatPage({ params }: Props) {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   })
-
+  
   // Handle fetched messages
   useEffect(() => {
     if (!fetchedMessages || !userId || !conversationId) {
