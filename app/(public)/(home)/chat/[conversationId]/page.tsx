@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usePusher } from '@/hooks/usePusher'
@@ -12,13 +12,14 @@ import {
   markMessageAsRead,
 } from '@/api/chat/chat'
 import { use } from 'react'
+import { debounce } from 'lodash'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Loader2, Check, SendHorizonal } from 'lucide-react'
+import { Loader2, Check, SendHorizontal } from 'lucide-react'
 import { format, isValid } from 'date-fns'
 
 interface Message {
@@ -34,6 +35,11 @@ interface Message {
   }
 }
 
+interface FetchMessagesResponse {
+  messages: Message[]
+  requestId: string
+}
+
 interface Props {
   params: Promise<{ conversationId: string }>
 }
@@ -45,6 +51,7 @@ export default function ChatPage({ params }: Props) {
   const [isTyping, setIsTyping] = useState(false)
   const [otherUserTyping, setOtherUserTyping] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const {
     user,
@@ -54,7 +61,7 @@ export default function ChatPage({ params }: Props) {
   } = useAuthContext()
   const queryClient = useQueryClient()
 
-  // Set userId from auth context
+  // Set userId from auth context and prevent redirect loop
   useEffect(() => {
     console.log('ChatPage AuthContext state:', {
       user,
@@ -66,26 +73,30 @@ export default function ChatPage({ params }: Props) {
       console.log('Waiting for auth to complete')
       return
     }
-    if (!user?._id) {
+    if (!user?._id && window.location.pathname !== '/sign-in') {
       console.warn('No user ID, redirecting to /sign-in')
-      if (
-        typeof window !== 'undefined' &&
-        window.location.pathname !== '/sign-in'
-      ) {
-        router.replace('/sign-in')
-      }
+      router.replace('/sign-in')
       return
     }
-    console.log('Setting userId:', user._id)
-    setUserId(user._id)
+    if (user?._id) {
+      console.log('Setting userId:', user._id)
+      setUserId(user._id)
+    }
   }, [user, isAuthLoading, isFetching, isSuccess, router])
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+    }
+  }, [messages, otherUserTyping])
 
   // Fetch messages using TanStack Query
   const {
-    data: fetchedMessages,
+    data: fetchedMessagesResponse,
     isLoading,
     isError,
-  } = useQuery<Message[]>({
+  } = useQuery<FetchMessagesResponse>({
     queryKey: ['messages', conversationId],
     queryFn: () => fetchMessages(conversationId),
     enabled: !!conversationId && !!userId,
@@ -93,20 +104,21 @@ export default function ChatPage({ params }: Props) {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   })
-  
+
   // Handle fetched messages
   useEffect(() => {
-    if (!fetchedMessages || !userId || !conversationId) {
+    if (!fetchedMessagesResponse || !userId || !conversationId) {
       console.warn('Skipping message handling: missing data', {
-        fetchedMessages: !!fetchedMessages,
+        fetchedMessagesResponse: !!fetchedMessagesResponse,
         userId,
         conversationId,
       })
       return
     }
-    console.log('Fetched messages:', fetchedMessages)
-    setMessages(fetchedMessages)
-    const unreadMessages = fetchedMessages
+    console.log('Fetched messages:', fetchedMessagesResponse.messages)
+    console.log('Request ID:', fetchedMessagesResponse.requestId)
+    setMessages(fetchedMessagesResponse.messages)
+    const unreadMessages = fetchedMessagesResponse.messages
       .filter((msg) => msg.senderId !== userId && !msg.isRead)
       .map((msg) => msg._id)
     console.log('Unread messages to mark as read:', unreadMessages)
@@ -118,7 +130,7 @@ export default function ChatPage({ params }: Props) {
     } else {
       console.log('No unread messages to mark')
     }
-  }, [fetchedMessages, conversationId, userId])
+  }, [fetchedMessagesResponse, conversationId, userId])
 
   // Mutations
   const sendMessageMutation = useMutation({
@@ -142,12 +154,8 @@ export default function ChatPage({ params }: Props) {
       })
     },
     onError: (error: any) => {
-      console.error('Error sending message:', {
-        message: error?.message || 'No message provided',
-        status: error?.response?.status || 'No status provided',
-        data: error?.response?.data || 'No data provided',
-        config: error?.config || 'No config provided',
-      })
+      console.error('Error sending message:', error)
+      alert('Failed to send message. Please try again.')
     },
   })
 
@@ -167,12 +175,7 @@ export default function ChatPage({ params }: Props) {
       return sendTypingEvent(conversationId, isTyping)
     },
     onError: (error: any) => {
-    //   console.error('Error sending typing event:', {
-    //     message: error?.message || 'No message provided',
-    //     status: error?.response?.status || 'No status provided',
-    //     data: error?.response?.data || 'No data provided',
-    //     config: error?.config || 'No config provided',
-    //   })
+      console.error('Error sending typing event:', error)
     },
   })
 
@@ -206,13 +209,7 @@ export default function ChatPage({ params }: Props) {
       })
     },
     onError: (error: any) => {
-    //   console.error('Error marking message as read:', {
-    //     message: error?.message || 'No message provided',
-    //     status: error?.response?.status || 'No status provided',
-    //     data: error?.response?.data || 'No data provided',
-    //     config: error?.config || 'No config provided',
-    //     stack: error?.stack || 'No stack trace',
-    //   })
+      console.error('Error marking message as read:', error)
       if (
         error?.response?.status === 401 &&
         typeof window !== 'undefined' &&
@@ -229,14 +226,17 @@ export default function ChatPage({ params }: Props) {
     (message: Message) => {
       console.log('New message received via Pusher:', message)
       setMessages((prev) => {
-        if (prev.some((msg) => msg._id === message._id)) return prev
+        const messageIds = new Set(prev.map((msg) => msg._id))
+        if (messageIds.has(message._id)) return prev
         return [...prev, message]
       })
       queryClient.setQueryData(
         ['messages', conversationId],
-        (old: Message[] | undefined) => {
-          if (old?.some((msg) => msg._id === message._id)) return old
-          return old ? [...old, message] : [message]
+        (old: FetchMessagesResponse | undefined) => {
+          if (old?.messages.some((msg) => msg._id === message._id)) return old
+          return old
+            ? { ...old, messages: [...old.messages, message] }
+            : { messages: [message], requestId: '' }
         }
       )
       if (
@@ -275,11 +275,14 @@ export default function ChatPage({ params }: Props) {
       )
       queryClient.setQueryData(
         ['messages', conversationId],
-        (old: Message[] | undefined) =>
+        (old: FetchMessagesResponse | undefined) =>
           old
-            ? old.map((msg) =>
-                msg._id === event.messageId ? { ...msg, isRead: true } : msg
-              )
+            ? {
+                ...old,
+                messages: old.messages.map((msg) =>
+                  msg._id === event.messageId ? { ...msg, isRead: true } : msg
+                ),
+              }
             : old
       )
     },
@@ -288,7 +291,6 @@ export default function ChatPage({ params }: Props) {
 
   const handleConversationClosed = useCallback(() => {
     console.log('Conversation closed event received')
-    alert('This conversation has ended.')
     router.replace('/')
   }, [router])
 
@@ -315,6 +317,18 @@ export default function ChatPage({ params }: Props) {
     pusherEvents
   )
 
+  // Debounced typing event
+  const debouncedTypingEvent = useCallback(
+    debounce((typing: boolean) => {
+      if (typing !== isTyping && conversationId && userId) {
+        console.log('Sending typing event:', typing)
+        setIsTyping(typing)
+        typingMutation.mutate({ conversationId, isTyping: typing })
+      }
+    }, 500),
+    [isTyping, conversationId, userId, typingMutation]
+  )
+
   // Send message
   const handleSendMessage = (e?: React.FormEvent) => {
     e?.preventDefault()
@@ -329,20 +343,13 @@ export default function ChatPage({ params }: Props) {
     console.log('Sending message:', newMessage)
     sendMessageMutation.mutate({ conversationId, content: newMessage })
     setIsTyping(false)
-    typingMutation.mutate({ conversationId, isTyping: false })
+    debouncedTypingEvent(false)
   }
 
   // Send typing event
-  const handleTypingEvent = useCallback(
-    (typing: boolean) => {
-      if (typing !== isTyping && conversationId && userId) {
-        console.log('Sending typing event:', typing)
-        setIsTyping(typing)
-        typingMutation.mutate({ conversationId, isTyping: typing })
-      }
-    },
-    [isTyping, conversationId, userId, typingMutation]
-  )
+  const handleTypingEvent = (typing: boolean) => {
+    debouncedTypingEvent(typing)
+  }
 
   // Handle key events
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -356,18 +363,18 @@ export default function ChatPage({ params }: Props) {
   const formatTimestamp = (timestamp?: string) => {
     if (!timestamp) {
       console.warn('Timestamp is undefined')
-      return ''
+      return 'Unknown time'
     }
     try {
       const date = new Date(timestamp)
       if (!isValid(date)) {
         console.warn(`Invalid timestamp: ${timestamp}`)
-        return ''
+        return 'Unknown time'
       }
       return format(date, 'HH:mm')
     } catch (error) {
       console.warn(`Error formatting timestamp: ${timestamp}`, error)
-      return ''
+      return 'Unknown time'
     }
   }
 
@@ -389,8 +396,8 @@ export default function ChatPage({ params }: Props) {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Card className="flex flex-col w-full max-w-3xl mx-auto my-8 border shadow-sm">
+    <div className="flex min-h-screen bg-gray-50 items-center justify-center">
+      <Card className="flex flex-col w-full max-w-3xl mx-auto my-8 border shadow-sm min-h-0 overflow-hidden">
         <CardHeader className="border-b p-4 bg-white">
           <div className="flex items-center space-x-3">
             <Avatar>
@@ -420,8 +427,16 @@ export default function ChatPage({ params }: Props) {
             </div>
           ) : isError ? (
             <div className="p-4 text-red-500">Error loading messages</div>
+          ) : messages.length === 0 ? (
+            <div className="p-4 text-center text-gray-500">
+              No messages yet. Start the conversation!
+            </div>
           ) : (
-            <ScrollArea className="h-[400px] p-4">
+            <ScrollArea
+              className="h-[calc(100vh-200px)] p-4"
+              ref={scrollAreaRef}
+              aria-label="Chat messages"
+            >
               <div className="space-y-4">
                 {messages.map((msg) => (
                   <div
@@ -514,28 +529,25 @@ export default function ChatPage({ params }: Props) {
           )}
         </CardContent>
 
-        <CardFooter className="border-t p-4 bg-white/95 backdrop-blur-sm">
+        <CardFooter className="border-t p-4 bg-white">
           <form
             onSubmit={handleSendMessage}
-            className="flex w-full items-end gap-2"
+            className="flex w-full items-end gap-2 max-w-full"
           >
-            <div className="flex-1 relative">
+            <div className="flex-1 relative min-w-0">
               <Input
                 type="text"
                 value={newMessage}
                 onChange={(e) => {
                   setNewMessage(e.target.value)
-                  if (e.target.value) {
-                    handleTypingEvent(true)
-                  } else {
-                    handleTypingEvent(false)
-                  }
+                  handleTypingEvent(!!e.target.value)
                 }}
                 onBlur={() => handleTypingEvent(false)}
                 onKeyDown={handleKeyDown}
-                className="pr-10 min-h-[40px] rounded-full"
+                className="pr-10 min-h-[40px] rounded-full w-full"
                 placeholder="Type a message..."
                 disabled={sendMessageMutation.isPending}
+                aria-label="Type a message"
               />
               {isTyping && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex space-x-1">
@@ -557,13 +569,13 @@ export default function ChatPage({ params }: Props) {
             <Button
               type="submit"
               size="icon"
-              className="rounded-full h-10 w-10"
+              className="rounded-full h-10 w-10 flex-shrink-0"
               disabled={!newMessage.trim() || sendMessageMutation.isPending}
             >
               {sendMessageMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <SendHorizonal className="h-4 w-4" />
+                <SendHorizontal className="h-4 w-4" />
               )}
             </Button>
           </form>

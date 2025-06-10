@@ -4,14 +4,9 @@ export const fetchMessages = async (conversationId: string) => {
     const response = await API.get(`/chat/messages/${conversationId}`, {
         withCredentials: true,
     });
-    return response.data.messages;
+    return response.data;
 };
-export const fetchRequestId = async (conversationId: string) => {
-  const response = await API.get(`/chat/messages/${conversationId}`, {
-    withCredentials: true,
-  })
-  return response.data.requestId
-}
+
 export const sendMessage = async (conversationId: string, content: string) => {
     const response = await API.post(
         `/chat/send`,
