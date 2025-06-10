@@ -60,7 +60,6 @@ export function DataTable<TData, TValue>({
       const driverPass = row.original as DriverPassType
       const search = filterValue.toLowerCase().replace(/\s+/g, '')
       return (
-        driverPass.userId.toLowerCase().includes(search) ||
         driverPass.packageType.toLowerCase().includes(search)
       )
     },

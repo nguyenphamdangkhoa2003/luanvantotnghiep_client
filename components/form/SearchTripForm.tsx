@@ -67,7 +67,7 @@ type SearchTripProps = {
   onSearchResults?: (results: any[]) => void
 }
 
-export default function SearchTrip({ onSearchResults }: SearchTripProps) {
+function SearchTrip({ onSearchResults }: SearchTripProps) {
   const userLocationContext = useContext(UserLocationContext)
   const {
     register,
@@ -99,6 +99,8 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
   const [route, setRoute] = useState<any[]>([])
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(false)
+  // Added to prevent double submissions
+  const [isSearching, setIsSearching] = useState(false)
 
   const router = useRouter()
   const pathname = usePathname()
@@ -226,6 +228,7 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
 
   // Restore data from localStorage
   useEffect(() => {
+    console.log('Restoring from localStorage')
     const storedData = localStorage.getItem('searchTripForm')
     if (storedData) {
       const parsedData = JSON.parse(storedData)
@@ -240,22 +243,27 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
     }
   }, [setValue])
 
-  // Đồng bộ pickupQuery với watch('pickup') khi pickupOpen thay đổi
+  // Sync pickupQuery with watch('pickup') when pickupOpen changes
   useEffect(() => {
+    console.log('Syncing pickupQuery, pickupOpen:', pickupOpen)
     if (pickupOpen) {
       setPickupQuery(watch('pickup'))
     }
   }, [pickupOpen, watch])
 
-  // Đồng bộ dropoffQuery với watch('dropoff') khi dropoffOpen thay đổi
+  // Sync dropoffQuery with watch('dropoff') when dropoffOpen changes
   useEffect(() => {
+    console.log('Syncing dropoffQuery, dropoffOpen:', dropoffOpen)
     if (dropoffOpen) {
       setDropoffQuery(watch('dropoff'))
     }
   }, [dropoffOpen, watch])
 
   const onSubmit = async (data: FormData) => {
+    if (isSearching) return
+    setIsSearching(true)
     setIsLoading(true)
+
     try {
       const searchData: SearchRouteType = {
         startCoords: pickupCoords || undefined,
@@ -263,11 +271,10 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
         date: data.date,
         seatsAvailable: data.passengers,
       }
-      console.log('Sending search data:', searchData)
+
       const response = await searchRoutesQueryFn(searchData)
       const searchResults = response.data
 
-      // Tạo query params với đầy đủ thông tin, bao gồm tọa độ
       const queryParams = new URLSearchParams({
         pickup: data.pickup,
         dropoff: data.dropoff,
@@ -277,7 +284,8 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
         dropoffCoords: JSON.stringify(dropoffCoords || {}),
       }).toString()
 
-      // Lưu toàn bộ dữ liệu tìm kiếm vào localStorage
+      // Lưu vào localStorage
+      localStorage.setItem('searchResults', JSON.stringify(searchResults))
       localStorage.setItem(
         'searchTripForm',
         JSON.stringify({
@@ -291,10 +299,9 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
       )
 
       if (pathname === '/') {
-        localStorage.setItem('searchResults', JSON.stringify(searchResults))
         router.push(`/booking?${queryParams}`)
       } else {
-        router.replace(`/booking?${queryParams}`, { scroll: false })
+        window.history.pushState(null, '', `?${queryParams}`)
         if (onSearchResults) {
           onSearchResults(searchResults)
         }
@@ -306,6 +313,7 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
       }
     } finally {
       setIsLoading(false)
+      setIsSearching(false)
     }
   }
 
@@ -314,6 +322,7 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
 
   // Sync date with form
   useEffect(() => {
+    console.log('Syncing date, selectedDate:', selectedDate)
     if (selectedDate) {
       setValue('date', format(selectedDate, 'yyyy-MM-dd'))
     } else {
@@ -322,8 +331,9 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
   }, [selectedDate, setValue])
 
   // Restore date from form state
+  const dateValue = watch('date')
   useEffect(() => {
-    const dateValue = watch('date')
+    console.log('Restoring date, dateValue:', dateValue)
     if (dateValue) {
       const parsedDate = new Date(dateValue)
       const today = startOfDay(new Date())
@@ -336,7 +346,7 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
     } else {
       setSelectedDate(undefined)
     }
-  }, [watch('date'), setValue])
+  }, [dateValue, setValue])
 
   const hasErrors =
     errors.pickup || errors.dropoff || errors.date || errors.passengers
@@ -352,7 +362,7 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* Điểm đón */}
+          {/* Pickup */}
           <div>
             <label className="block text-[var(--foreground)] text-sm font-medium mb-2">
               Điểm đón
@@ -432,7 +442,7 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
             )}
           </div>
 
-          {/* Điểm đến */}
+          {/* Dropoff */}
           <div>
             <label className="block text-[var(--foreground)] text-sm font-medium mb-2">
               Điểm đến
@@ -512,7 +522,7 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
             )}
           </div>
 
-          {/* Ngày khởi hành */}
+          {/* Departure Date */}
           <div>
             <label className="block text-[var(--foreground)] text-sm font-medium mb-2">
               Ngày khởi hành
@@ -558,7 +568,7 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
             )}
           </div>
 
-          {/* Số người */}
+          {/* Number of Passengers */}
           <div>
             <label className="block text-[var(--foreground)] text-sm font-medium mb-2">
               Số người
@@ -582,11 +592,12 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
             )}
           </div>
 
-          {/* Nút tìm chuyến */}
+          {/* Search Button */}
           <div className="lg:pt-7 pt-0 sm:col-span-2 lg:col-span-1">
             <div className="flex items-end justify-center">
               <Button
                 type="submit"
+                disabled={isLoading || isSearching}
                 className="bg-[var(--primary)] text-[var(--primary-foreground)] text-sm font-semibold px-8 py-3 rounded-lg shadow-md hover:opacity-90 transition-all w-full h-11"
               >
                 {isLoading ? (
@@ -604,7 +615,7 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
         </div>
       </form>
 
-      {/* Route selection UI - Chỉ hiển thị trên trang chủ */}
+      {/* Route selection UI - Only shown on homepage */}
       {pathname === '/' && route.length > 0 && (
         <div className="w-full max-w-6xl mt-4 mb-2">
           <h3 className="text-lg font-medium mb-2">Chọn tuyến đường</h3>
@@ -627,7 +638,7 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
         </div>
       )}
 
-      {/* Map container - Chỉ hiển thị trên trang chủ */}
+      {/* Map container - Only shown on homepage */}
       {pathname === '/' && (
         <div className="w-full max-w-6xl mt-6">
           <h2 className="text-[20px] font-semibold mb-0.5">Map Section</h2>
@@ -729,3 +740,6 @@ export default function SearchTrip({ onSearchResults }: SearchTripProps) {
     </div>
   )
 }
+
+
+export default SearchTrip

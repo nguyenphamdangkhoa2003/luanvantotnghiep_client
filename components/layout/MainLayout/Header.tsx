@@ -1,36 +1,50 @@
-'use client';
+'use client'
 
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { LogIn, Menu, X } from 'lucide-react';
+import Image from 'next/image'
+import { Button } from '@/components/ui/button'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { LogIn, Menu, X, Bell } from 'lucide-react' 
 import {
   MdOutlineAdminPanelSettings,
   MdCalendarToday,
   MdAccountCircle,
-} from 'react-icons/md';
-import { CiMenuKebab } from 'react-icons/ci';
+} from 'react-icons/md'
+import { CiMenuKebab } from 'react-icons/ci'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { RoleEnum } from '@/types/enum';
-import LogoutDialog from '@/components/dialog/LogoutDialog';
-import Logo from '../Logo';
-import { ThemeColorToggle } from '@/components/toggle/ThemeColorToggle';
-import { ThemeModeToggle } from '@/components/toggle/ThemeModeToggle';
-import { cn } from '@/lib/utils';
-import { useAuthContext } from '@/context/auth-provider';
+} from '@/components/ui/dropdown-menu'
+import { RoleEnum } from '@/types/enum'
+import LogoutDialog from '@/components/dialog/LogoutDialog'
+import Logo from '../Logo'
+import { ThemeColorToggle } from '@/components/toggle/ThemeColorToggle'
+import { ThemeModeToggle } from '@/components/toggle/ThemeModeToggle'
+import { cn } from '@/lib/utils'
+import { useAuthContext } from '@/context/auth-provider'
+
+const notifications = [
+  {
+    id: 1,
+    message: 'Bạn có lịch hẹn mới vào 14:00 ngày mai',
+    time: '2 giờ trước',
+  },
+  { id: 2, message: 'Đặt chỗ của bạn đã được xác nhận', time: '1 ngày trước' },
+  {
+    id: 3,
+    message: 'Cập nhật hệ thống mới đã được triển khai',
+    time: '3 ngày trước',
+  },
+]
 
 const Header = () => {
-  const router = useRouter();
-  const [isLogoutOpen, setIsLogoutOpen] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-  const { user } = useAuthContext();
+  const router = useRouter()
+  const [isLogoutOpen, setIsLogoutOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
+  const { user } = useAuthContext()
 
   return (
     <nav
@@ -58,22 +72,89 @@ const Header = () => {
 
         {/* Menu Desktop */}
         <div className="hidden md:flex space-x-6 text-lg font-medium text-[var(--foreground)]">
-          <Link href="/" className="text-primary hover:text-primary/80 transition">
+          <Link
+            href="/"
+            className="text-primary hover:text-primary/80 transition"
+          >
             Trang chủ
           </Link>
-          <Link href="/booking" className="text-primary hover:text-primary/80 transition">
+          <Link
+            href="/booking"
+            className="text-primary hover:text-primary/80 transition"
+          >
             Đặt trước
           </Link>
-          <Link href="/contact" className="text-primary hover:text-primary/80 transition">
+          <Link
+            href="/contact"
+            className="text-primary hover:text-primary/80 transition"
+          >
             Liên hệ
           </Link>
-          <Link href="/about" className="text-primary hover:text-primary/80 transition">
+          <Link
+            href="/about"
+            className="text-primary hover:text-primary/80 transition"
+          >
             Về chúng tôi
           </Link>
         </div>
 
         {/* Phần điều khiển */}
         <div className="flex items-center space-x-2 sm:space-x-3">
+          {/* Nút thông báo (Desktop) */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  'relative hover:bg-[var(--muted)] hover:shadow-md',
+                  'transition-all duration-200 ease-in-out rounded-[var(--radius-md)] p-2'
+                )}
+              >
+                <Bell size={20} className="text-[var(--foreground)]" />
+                {notifications.length > 0 && (
+                  <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full" />
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className={cn(
+                'w-64 sm:w-80 bg-[var(--card)] border-[var(--border)]',
+                'rounded-[var(--radius-md)] shadow-lg p-2'
+              )}
+              side="bottom"
+              align="end"
+              sideOffset={8}
+            >
+              {notifications.length > 0 ? (
+                notifications.map((notification) => (
+                  <DropdownMenuItem
+                    key={notification.id}
+                    className={cn(
+                      'flex flex-col items-start gap-1 px-3 py-2 text-sm text-[var(--foreground)]',
+                      'hover:bg-[var(--muted)] hover:shadow-sm',
+                      'transition-all duration-200 ease-in-out rounded-[var(--radius-sm)] cursor-pointer'
+                    )}
+                  >
+                    <span className="font-medium">{notification.message}</span>
+                    <span className="text-xs text-[var(--muted-foreground)]">
+                      {notification.time}
+                    </span>
+                  </DropdownMenuItem>
+                ))
+              ) : (
+                <DropdownMenuItem
+                  className={cn(
+                    'px-3 py-2 text-sm text-[var(--muted-foreground)]',
+                    'rounded-[var(--radius-sm)]'
+                  )}
+                >
+                  Không có thông báo
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {!user ? (
             <div className="hidden md:flex items-center gap-2">
               <Button
@@ -297,8 +378,8 @@ const Header = () => {
                   'transition-all duration-200 ease-in-out rounded-[var(--radius-md)] py-2 text-sm'
                 )}
                 onClick={() => {
-                  router.push('/sign-in');
-                  setIsOpen(false);
+                  router.push('/sign-in')
+                  setIsOpen(false)
                 }}
               >
                 Đăng nhập
@@ -311,8 +392,8 @@ const Header = () => {
                   'transition-all duration-200 ease-in-out rounded-[var(--radius-md)] py-2 text-sm'
                 )}
                 onClick={() => {
-                  router.push('/sign-up');
-                  setIsOpen(false);
+                  router.push('/sign-up')
+                  setIsOpen(false)
                 }}
               >
                 Đăng ký
@@ -426,7 +507,7 @@ const Header = () => {
       </div>
       <LogoutDialog isOpen={isLogoutOpen} setIsOpen={setIsLogoutOpen} />
     </nav>
-  );
-};
+  )
+}
 
-export default Header;
+export default Header

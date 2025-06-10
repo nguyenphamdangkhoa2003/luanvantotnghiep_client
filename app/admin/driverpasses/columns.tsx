@@ -25,7 +25,8 @@ import { useMutation } from '@tanstack/react-query'
 
 export interface DriverPassType {
   _id: string
-  userId: string
+  name: string
+  email:string
   packageType: string
   acceptRequests: number
   price: number
@@ -37,9 +38,7 @@ export interface DriverPassType {
   updatedAt: string
 }
 
-export const createColumns = (
-  refetch: () => void
-): ColumnDef<DriverPassType>[] => [
+export const createColumns = (refetch: () => void): ColumnDef<DriverPassType>[] => [
   {
     id: 'select',
     header: ({ table }) => (
@@ -67,9 +66,12 @@ export const createColumns = (
     header: 'User ID',
     cell: ({ row }) => (
       <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-        <span className="truncate text-xs text-muted-foreground">
-          {row.original.userId}
-        </span>
+        <div className="grid flex-1 text-left text-sm leading-tight">
+          <span className="truncate font-medium">{row.original.name}</span>
+          <span className="truncate text-xs text-muted-foreground">
+            {row.original.email || 'No email provided'}
+          </span>
+        </div>
       </div>
     ),
   },
@@ -156,95 +158,5 @@ export const createColumns = (
       return value.includes(row.getValue(id))
     },
   },
-  {
-    accessorKey: 'actions',
-    cell: ({ row }) => {
-      const router = useRouter()
-      const toggleStatusMutation = useMutation({
-        onSuccess: () => {
-          toast.success('Status updated successfully')
-          refetch()
-        },
-        onError: (error) => toast.error(error.message),
-      })
-
-      const deleteDriverPassMutation = useMutation({
-        onSuccess: () => {
-          toast.success('Driver pass deleted successfully')
-          refetch()
-        },
-        onError: (error) => toast.error(error.message),
-      })
-
-      const isActive = row.original.status === 'active'
-
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Link
-                className="flex gap-2 items-center cursor-pointer"
-                href={`/admin/driverpasses/${row.original._id}`}
-              >
-                <CgProfile />
-                View
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-              <ConfirmDialog
-                triggerText={isActive ? 'Deactivate' : 'Activate'}
-                triggerVariant="ghost"
-                title={`Are you sure you want to ${
-                  isActive ? 'deactivate' : 'activate'
-                } this driver pass?`}
-                description={`This will ${
-                  isActive ? 'deactivate' : 'activate'
-                } the driver pass in the system.`}
-                confirmText={isActive ? 'Deactivate' : 'Activate'}
-                // onConfirm={() =>
-                //   toggleStatusMutation.mutate({
-                //     driverPassId: row.original._id,
-                //     status: isActive ? 'inactive' : 'active',
-                //   })
-                // }
-              >
-                <div className="flex gap-2 items-center cursor-pointer text-blue-500">
-                  <FaExchangeAlt className="text-blue-500" />
-                  {isActive ? 'Deactivate' : 'Activate'}
-                </div>
-              </ConfirmDialog>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-              <ConfirmDialog
-                triggerText="Delete"
-                triggerVariant="ghost"
-                title="Are you sure you want to delete this driver pass?"
-                description="This action cannot be undone. This will permanently delete the driver pass and remove its data from our servers."
-                confirmText="Delete"
-                // onConfirm={() =>
-                //   deleteDriverPassMutation.mutate({
-                //     driverPassId: row.original._id,
-                //   })
-                // }
-              >
-                <div className="flex gap-2 items-center cursor-pointer text-red-500">
-                  <IoTrash className="text-red-500" />
-                  Delete
-                </div>
-              </ConfirmDialog>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )
-    },
-  },
+  
 ]

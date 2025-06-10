@@ -48,11 +48,9 @@ interface Trip {
 export default function BookingPage() {
   const [trips, setTrips] = useState<Trip[]>([])
   const searchParams = useSearchParams()
-  const [isLoading, setIsLoading] = useState(false)
 
   // Hàm tải kết quả từ API
   const loadSearchResults = async (searchData: any) => {
-    setIsLoading(true)
     try {
       const response = await searchRoutesQueryFn({
         startCoords: searchData.pickupCoords,
@@ -67,7 +65,6 @@ export default function BookingPage() {
       console.error('Error loading search results:', error)
       setTrips([])
     } finally {
-      setIsLoading(false)
     }
   }
 
@@ -173,11 +170,7 @@ export default function BookingPage() {
       </div>
 
       {/* Trips List */}
-      {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-[var(--primary)]" />
-        </div>
-      ) : (
+      
         <div className="space-y-4 max-w-3xl mx-auto">
           <h2 className="text-xl font-bold text-[var(--foreground)]">
             <span className="text-[var(--primary)]">Chuyến đi có sẵn</span>
@@ -201,7 +194,6 @@ export default function BookingPage() {
             </div>
           )}
         </div>
-      )}
     </div>
   )
 }

@@ -1,52 +1,53 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { createColumns } from './columns'
 import { DataTable } from './data-table'
 import { AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DriverPassType } from './columns'
+import { getAllMembershipsQueryFn } from '@/api/memberships/membership'
 
 function DriverPassesPage() {
-  const [isPending, setIsPending] = useState(true)
-  const [isError, setIsError] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [driverPasses, setDriverPasses] = useState<DriverPassType[]>([])
   const [refetchTrigger, setRefetchTrigger] = useState(0)
 
-  // Updated mock data based on provided JSON
-  const mockDriverPasses: DriverPassType[] = [
-    {
-      _id: '682e7df94050c6ef7f345840',
-      userId: '6821252f57e5d421d2a3de86',
-      packageType: 'Basic',
-      acceptRequests: 50,
-      price: 100000,
-      durationDays: 30,
-      startDate: '2025-05-22T01:29:29.791Z',
-      endDate: '2025-06-21T01:29:29.791Z',
-      status: 'active',
-      createdAt: '2025-05-22T01:29:29.799Z',
-      updatedAt: '2025-05-22T01:29:29.799Z',
+  // Define the mutation
+  const { mutate, isPending, isError, error } = useMutation({
+    mutationFn: getAllMembershipsQueryFn,
+    onSuccess: (response) => {
+      const memberships = response.data // Assuming API returns { data: [...] }
+
+      // Transform API data to match DriverPassType
+      const transformedData: DriverPassType[] = memberships.map(
+        (membership: any) => ({
+          _id: membership._id,
+          name: membership.userId.name,
+          email:membership.userId.email,
+          packageType: membership.packageType,
+          acceptRequests: membership.acceptRequests,
+          price: membership.price,
+          durationDays: membership.durationDays,
+          startDate: membership.startDate,
+          endDate: membership.endDate,
+          status: membership.status,
+          createdAt: membership.createdAt,
+          updatedAt: membership.updatedAt,
+        })
+      )
+
+      setDriverPasses(transformedData)
     },
-  ]
+    onError: (err: any) => {
+      console.error('Failed to fetch driver passes:', err)
+    },
+  })
 
+  // Trigger mutation on mount and refetch
   useEffect(() => {
-    setIsPending(true)
-
-    const timeout = setTimeout(() => {
-      try {
-        setDriverPasses(mockDriverPasses)
-        setIsPending(false)
-      } catch (err) {
-        setIsError(true)
-        setError('Failed to load driver passes')
-        setIsPending(false)
-      }
-    }, 1000)
-
-    return () => clearTimeout(timeout)
-  }, [refetchTrigger])
+    mutate()
+  }, [refetchTrigger, mutate])
 
   const refetch = () => {
     setRefetchTrigger((prev) => prev + 1)
@@ -101,7 +102,7 @@ function DriverPassesPage() {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
             <AlertDescription>
-              {error || 'Failed to fetch driver passes'}
+              {error?.message || 'Failed to fetch driver passes'}
             </AlertDescription>
           </Alert>
         </div>
