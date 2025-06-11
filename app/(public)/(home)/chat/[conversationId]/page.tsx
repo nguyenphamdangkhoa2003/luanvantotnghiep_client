@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usePusher } from '@/hooks/usePusher'
@@ -11,7 +11,7 @@ import {
   sendTypingEvent,
   markMessageAsRead,
 } from '@/api/chat/chat'
-import { use } from 'react'
+import { cancelBookingMutationFn } from '@/api/routes/route'
 import { debounce } from 'lodash'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
@@ -19,8 +19,25 @@ import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Loader2, Check, SendHorizontal } from 'lucide-react'
+import { Loader2, Check, SendHorizontal, MoreVertical } from 'lucide-react'
 import { format, isValid } from 'date-fns'
+import { toast } from 'sonner'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 interface Message {
   _id: string
@@ -44,6 +61,10 @@ interface Props {
   params: Promise<{ conversationId: string }>
 }
 
+interface CancelRequestType {
+  requestId: string
+}
+
 export default function ChatPage({ params }: Props) {
   const { conversationId } = use(params)
   const [messages, setMessages] = useState<Message[]>([])
@@ -51,6 +72,8 @@ export default function ChatPage({ params }: Props) {
   const [isTyping, setIsTyping] = useState(false)
   const [otherUserTyping, setOtherUserTyping] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [showCancelDialog, setShowCancelDialog] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const {
@@ -70,16 +93,13 @@ export default function ChatPage({ params }: Props) {
       isSuccess,
     })
     if (isAuthLoading || isFetching || !isSuccess) {
-      console.log('Waiting for auth to complete')
       return
     }
     if (!user?._id && window.location.pathname !== '/sign-in') {
-      console.warn('No user ID, redirecting to /sign-in')
       router.replace('/sign-in')
       return
     }
     if (user?._id) {
-      console.log('Setting userId:', user._id)
       setUserId(user._id)
     }
   }, [user, isAuthLoading, isFetching, isSuccess, router])
@@ -154,8 +174,7 @@ export default function ChatPage({ params }: Props) {
       })
     },
     onError: (error: any) => {
-      console.error('Error sending message:', error)
-      alert('Failed to send message. Please try again.')
+      // Handle error if needed
     },
   })
 
@@ -175,7 +194,7 @@ export default function ChatPage({ params }: Props) {
       return sendTypingEvent(conversationId, isTyping)
     },
     onError: (error: any) => {
-      console.error('Error sending typing event:', error)
+      // Handle error if needed
     },
   })
 
@@ -209,7 +228,6 @@ export default function ChatPage({ params }: Props) {
       })
     },
     onError: (error: any) => {
-      console.error('Error marking message as read:', error)
       if (
         error?.response?.status === 401 &&
         typeof window !== 'undefined' &&
@@ -218,6 +236,21 @@ export default function ChatPage({ params }: Props) {
         console.log('401 error detected, redirecting to /sign-in')
         router.replace('/sign-in')
       }
+    },
+  })
+
+  const cancelBookingMutation = useMutation({
+    mutationFn: (data: CancelRequestType) => cancelBookingMutationFn(data),
+    onSuccess: () => {
+      console.log('Booking cancelled successfully')
+      toast.success('Booking cancelled successfully')
+      router.replace('/')
+    },
+    onError: (error: any) => {
+      console.error('Error cancelling booking:', error)
+      toast.error(
+        error.message || 'Failed to cancel booking. Please try again.'
+      )
     },
   })
 
@@ -346,6 +379,31 @@ export default function ChatPage({ params }: Props) {
     debouncedTypingEvent(false)
   }
 
+  // Handle cancel booking
+  const handleCancelBooking = () => {
+    if (!fetchedMessagesResponse?.requestId) {
+      console.warn('Cannot cancel booking: missing requestId', {
+        requestId: fetchedMessagesResponse?.requestId,
+      })
+      toast.error('Cannot cancel booking: incomplete data.')
+      return
+    }
+    console.log(
+      'Cancelling booking with requestId:',
+      fetchedMessagesResponse.requestId
+    )
+    cancelBookingMutation.mutate({
+      requestId: fetchedMessagesResponse.requestId,
+    })
+  }
+
+  // Handle confirm booking
+  const handleConfirmBooking = () => {
+    // Implement your confirm booking logic here
+    toast.success('Booking confirmed successfully')
+    console.log('Booking confirmed')
+  }
+
   // Send typing event
   const handleTypingEvent = (typing: boolean) => {
     debouncedTypingEvent(typing)
@@ -399,19 +457,86 @@ export default function ChatPage({ params }: Props) {
     <div className="flex min-h-screen bg-gray-50 items-center justify-center">
       <Card className="flex flex-col w-full max-w-3xl mx-auto my-8 border shadow-sm min-h-0 overflow-hidden">
         <CardHeader className="border-b p-4 bg-white">
-          <div className="flex items-center space-x-3">
-            <Avatar>
-              <AvatarImage src={user?.avatar} />
-              <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
-            </Avatar>
-            <div>
-              <h2 className="font-semibold">Chat</h2>
-              <p className="text-sm text-gray-500">
-                {isConnected ? 'Online' : 'Connecting...'}
-              </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Avatar>
+                <AvatarImage src={user?.avatar} />
+                <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
+              </Avatar>
+              <div>
+                <h2 className="font-semibold">Chat</h2>
+                <p className="text-sm text-gray-500">
+                  {isConnected ? 'Online' : 'Connecting...'}
+                </p>
+              </div>
             </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setShowConfirmDialog(true)}>
+                  Confirm Booking
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setShowCancelDialog(true)}
+                  className="text-red-600 focus:text-red-600"
+                >
+                  Cancel Booking
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardHeader>
+
+        {/* Confirm Booking Dialog */}
+        <AlertDialog
+          open={showConfirmDialog}
+          onOpenChange={setShowConfirmDialog}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Booking</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to confirm this booking?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmBooking}>
+                Confirm
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Cancel Booking Dialog */}
+        <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancel Booking</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to cancel this booking? This action cannot
+                be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Back</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleCancelBooking}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {cancelBookingMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  'Cancel Booking'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <CardContent className="flex-1 p-0">
           {isLoading ? (

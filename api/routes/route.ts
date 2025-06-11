@@ -52,10 +52,14 @@ type CancelRequestType = {
     requestId: string;
 };
 
+type CompleteTripType = {
+  tripRequestId: string
+}
+
 // Cancel route by driver
 export const cancelBookingMutationFn = async (data: CancelRequestType) => {
-    return await API.post('/routes/cancel', data);
-};
+  return await API.post('/routes/cancel', data)
+}
 
 // Get detail route
 export const getRouteByIdQueryFn = async (routeId: string) => {
@@ -87,4 +91,14 @@ export const getPassengersQueryFn = async (data: GetPassengersType) => {
     return await API.post('/routes/passengers', data);
 };
 
+export const getRequestsByDriverIdQueryFn = async (driverId: string) => {
+  return await API.get(`/routes/requests/driver/${driverId}`)
+}
 
+export const completeTripMutationFn = async (data: CompleteTripType) => {
+  return await API.patch(`/routes/${data.tripRequestId}/complete`, {})
+}
+
+export const getRoutesByDriverQueryFn = async (userId: string) => {
+  return await API.get(`/routes/driver/${userId}`)
+}

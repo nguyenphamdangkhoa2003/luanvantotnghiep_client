@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import {
   Table,
   TableBody,
@@ -29,11 +29,14 @@ import {
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import * as z from 'zod'
-import { Pencil, Trash2, Plus, Loader2, Users } from 'lucide-react'
+import { Pencil, Plus, Loader2, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
+import { getRoutesByDriverQueryFn } from '@/api/routes/route'
+import { useAuthContext } from '@/context/auth-provider'
 
 interface Route {
   id: string
@@ -41,6 +44,7 @@ interface Route {
   startPoint: string
   endPoint: string
   status: 'active' | 'pending' | 'cancelled'
+  waypoints?: { name: string }[]
 }
 
 const routeSchema = z.object({
@@ -49,31 +53,28 @@ const routeSchema = z.object({
   endPoint: z.string().min(1, 'Điểm kết thúc không được để trống'),
 })
 
-const currentDriverId = 'D001'
+const formatAddress = (name: string): string => {
+  const parts = name.split(',').map((part) => part.trim())
+  if (parts.length < 4) {
+    return name.trim()
+  }
 
-const initialRoutes: Route[] = [
-  {
-    id: '1',
-    routeName: 'Tuyến Hà Nội - Hải Phòng',
-    startPoint: 'Hà Nội',
-    endPoint: 'Hải Phòng',
-    status: 'active',
-  },
-  {
-    id: '2',
-    routeName: 'Tuyến Hà Nội - Thái Nguyên',
-    startPoint: 'Hà Nội',
-    endPoint: 'Thái Nguyên',
-    status: 'pending',
-  },
-]
+  const cityOrProvince = parts.find(
+    (part) => part.includes('Thành phố') || part.includes('Tỉnh')
+  )
+
+  if (!cityOrProvince) {
+    return name.trim()
+  }
+
+  return `${parts[0]}, ${cityOrProvince}`.trim()
+}
 
 const TipManage: React.FC = () => {
   const router = useRouter()
-  const [routes, setRoutes] = useState<Route[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingRoute, setEditingRoute] = useState<Route | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const { user, isLoading: isAuthLoading } = useAuthContext()
 
   const form = useForm<z.infer<typeof routeSchema>>({
     resolver: zodResolver(routeSchema),
@@ -84,21 +85,35 @@ const TipManage: React.FC = () => {
     },
   })
 
-  useEffect(() => {
-    const fetchRoutes = async () => {
-      try {
-        setIsLoading(true)
-        await new Promise((resolve) => setTimeout(resolve, 800))
-        setRoutes(initialRoutes.filter((route) => route.status !== 'cancelled'))
-      } catch (error) {
-        toast.error('Lỗi khi tải dữ liệu tuyến đường')
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchRoutes()
-  }, [])
+  // Fetch routes using useQuery
+  const {
+    data: routes = [],
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ['routes', user?._id],
+    queryFn: () => getRoutesByDriverQueryFn(user?._id),
+    enabled: !!user?._id,
+    select: (response) => {
+      console.log('API Response:', response) // Debug the API response
+      if (!response?.data) return []
+      return response.data
+        .map((route: any) => ({
+          id: route._id,
+          routeName: route.name || '',
+          startPoint: route.waypoints?.[0]?.name
+            ? formatAddress(route.waypoints[0].name)
+            : 'Unknown',
+          endPoint:
+            route.waypoints?.length > 1
+              ? formatAddress(route.waypoints[route.waypoints.length - 1].name)
+              : 'Unknown',
+          status: route.status,
+          waypoints: route.waypoints,
+        }))
+        .filter((route: Route) => route.status !== 'cancelled')
+    },
+  })
 
   const openDialog = (route?: Route) => {
     if (route) {
@@ -115,50 +130,15 @@ const TipManage: React.FC = () => {
     setIsDialogOpen(true)
   }
 
-  const onSubmit = async (values: z.infer<typeof routeSchema>) => {
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 500))
-
-      if (editingRoute) {
-        setRoutes(
-          routes.map((route) =>
-            route.id === editingRoute.id ? { ...route, ...values } : route
-          )
-        )
-        toast.success('Cập nhật tuyến đường thành công')
-      } else {
-        const newRoute = {
-          ...values,
-          id: (routes.length + 1).toString(),
-          status: 'pending',
-        }
-        setRoutes([...routes, newRoute])
-        toast.success('Đăng ký tuyến đường thành công')
-      }
-      setIsDialogOpen(false)
-    } catch (error) {
-      toast.error('Đã xảy ra lỗi khi xử lý yêu cầu')
-    }
-  }
-
-  const handleCancelRoute = async (id: string) => {
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 500))
-
-      setRoutes(
-        routes.map((route) =>
-          route.id === id ? { ...route, status: 'cancelled' } : route
-        )
-      )
-      toast.success('Hủy tuyến đường thành công')
-    } catch (error) {
-      toast.error('Đã xảy ra lỗi khi hủy tuyến đường')
-    }
+  // Placeholder onSubmit (since no API is available)
+  const onSubmit = (values: z.infer<typeof routeSchema>) => {
+    toast.info('Chức năng này chưa được triển khai')
+    setIsDialogOpen(false)
+    form.reset()
   }
 
   const handleViewPassengers = (routeId: string) => {
-    // Chuyển đến trang danh sách hành khách với routeId
-    router.push(`/tripmanage/${routeId}/passengers`)
+    router.push(`/tripmanage/passengers/${routeId}`)
   }
 
   const getStatusBadge = (status: string) => {
@@ -172,6 +152,32 @@ const TipManage: React.FC = () => {
       default:
         return <Badge>{status}</Badge>
     }
+  }
+
+  if (isAuthLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="container mx-auto py-8 text-center">
+        <p className="text-muted-foreground">
+          Vui lòng đăng nhập để xem tuyến đường
+        </p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto py-8 text-center">
+        <p className="text-destructive">Lỗi khi tải dữ liệu tuyến đường</p>
+      </div>
+    )
   }
 
   return (
@@ -266,13 +272,7 @@ const TipManage: React.FC = () => {
                       >
                         Hủy
                       </Button>
-                      <Button
-                        type="submit"
-                        disabled={form.formState.isSubmitting}
-                      >
-                        {form.formState.isSubmitting && (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        )}
+                      <Button type="submit">
                         {editingRoute ? 'Cập nhật' : 'Đăng ký'}
                       </Button>
                     </div>
@@ -313,10 +313,10 @@ const TipManage: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {routes.map((route) => (
+                {routes.map((route: Route) => (
                   <TableRow key={route.id} className="hover:bg-gray-50">
                     <TableCell className="font-medium">
-                      {route.routeName}
+                      {route.startPoint} - {route.endPoint}
                     </TableCell>
                     <TableCell>{route.startPoint}</TableCell>
                     <TableCell>{route.endPoint}</TableCell>
@@ -335,27 +335,16 @@ const TipManage: React.FC = () => {
                           </Button>
                         )}
                         {route.status !== 'cancelled' && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => openDialog(route)}
-                              disabled={route.status === 'pending'}
-                              className="h-8 w-8"
-                              title="Chỉnh sửa"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="icon"
-                              onClick={() => handleCancelRoute(route.id)}
-                              className="h-8 w-8"
-                              title="Hủy tuyến"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => openDialog(route)}
+                            disabled={route.status === 'pending'}
+                            className="h-8 w-8"
+                            title="Chỉnh sửa"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                         )}
                       </div>
                     </TableCell>
