@@ -21,7 +21,6 @@ function UsersPage() {
   })
 
   const users = apiResponse?.data.data || []
-
   if (isPending) {
     return (
       <div className="p-3">

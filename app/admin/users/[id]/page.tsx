@@ -37,7 +37,6 @@ export default function UserPage({
     queryFn: () => getUserByIdQueryFn(userId).then((res) => res.data),
     enabled: !!userId,
   })
-
   const handleBack = () => router.back()
 
   if (isLoading) {

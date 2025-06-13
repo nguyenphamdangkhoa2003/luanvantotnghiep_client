@@ -167,10 +167,10 @@ export default function DrivePass() {
     const paymentStatus = searchParams.get('payment')
     if (paymentStatus === 'success') {
       toast.success('Thanh toán thành công! Gói DrivePass đã được kích hoạt.')
-      router.replace('/drivepass')
+      router.replace('/driverpass')
     } else if (paymentStatus === 'fail') {
       toast.error('Thanh toán thất bại. Vui lòng thử lại.')
-      router.replace('/drivepass')
+      router.replace('/driverpass')
     }
   }, [searchParams, router])
 
