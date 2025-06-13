@@ -169,15 +169,6 @@ const Notifications = () => {
             >
               Đang tải thông báo...
             </div>
-          ) : isError ? (
-            <div
-              className={cn(
-                'p-4 rounded-lg bg-white border border-gray-200',
-                'text-center text-gray-500'
-              )}
-            >
-              Lỗi khi tải thông báo. Vui lòng thử lại.
-            </div>
           ) : requests.length > 0 ? (
             requests.map((request) => (
               <div

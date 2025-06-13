@@ -51,14 +51,11 @@ export default function PassengerList({ params }: PageProps) {
     const fetchPassengers = async () => {
       try {
         setLoading(true)
-        console.log('Fetching passengers for routeId:', routeId)
         const response = await getPassengersQueryFn({ routeId })
-        console.log('API Response:', response)
         setPassengers(response.data || [])
         setError(null)
       } catch (err) {
         setError('Không thể tải danh sách hành khách.')
-        console.error('API Error:', err)
       } finally {
         setLoading(false)
       }

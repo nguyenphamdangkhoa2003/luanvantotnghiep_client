@@ -37,6 +37,12 @@ export interface UserType {
     }
     isVerified: boolean
   }[]
+  currentMembership?: {
+    packageType: string
+    remainingRequests: number
+    endDate: Date
+    _id: string
+  }
   __v?: number
   avatar?: string
   identityDocument?: {
@@ -54,7 +60,7 @@ export interface UserType {
     _id: string
   }
   dateOfBirth?: string
-  phoneNumber?: string 
+  phoneNumber?: string
 }
 
 type AuthContextType = {
@@ -78,9 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const user = data?.data
   const logout = async () => {
     try {
-      const response = await API.post(
-        '/auth/logout',
-      )
+      const response = await API.post('/auth/logout')
       if (response.data.message === 'Đăng xuất thành công') {
         localStorage.removeItem('loginSuccess')
         queryClient.removeQueries({ queryKey: ['authUser'] })
@@ -88,7 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     } catch (err) {
       toast.success('Thành công', {
-        description: "Đăng xuất thất bại",
+        description: 'Đăng xuất thất bại',
       })
     }
   }

@@ -1,6 +1,8 @@
 'use client'
+
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -10,10 +12,12 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { CheckCircle2 } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   getAllPackagesQueryFn,
   purchaseMembershipMutationFn,
 } from '@/api/memberships/membership'
+import { useAuthContext } from '@/context/auth-provider'
 
 // Hàm định dạng tiền tệ
 const formatCurrency = (amount: number) => {
@@ -34,11 +38,17 @@ const generateFeatures = (pkg: {
 }
 
 // Child component for each package card
-function PackageCard({ pkg }: { pkg: any }) {
+function PackageCard({
+  pkg,
+  currentMembership,
+}: {
+  pkg: any
+  currentMembership: any
+}) {
   const [error, setError] = useState<string | null>(null)
 
   const mutation = useMutation({
-    mutationKey: ['purchaseMembership', pkg._id], // Unique key per package
+    mutationKey: ['purchaseMembership', pkg._id],
     mutationFn: purchaseMembershipMutationFn,
     onSuccess: (response) => {
       window.location.href = response.data.paymentUrl
@@ -57,6 +67,8 @@ function PackageCard({ pkg }: { pkg: any }) {
       : pkg.durationDays >= 7
       ? 'tuần'
       : 'ngày'
+
+  const isActivePackage = currentMembership?.packageType === pkg.name
 
   return (
     <div className="relative w-full sm:w-1/2 lg:w-1/3 max-w-sm">
@@ -106,13 +118,17 @@ function PackageCard({ pkg }: { pkg: any }) {
             size="lg"
             className={`w-full h-12 text-base font-semibold rounded-[var(--radius)] transition-all duration-200 hover:scale-101 hover:shadow-md ${
               pkg.popular
-                ? ' text-[var(--primaryForeground)] hover:bg-primary/80'
+                ? 'text-[var(--primaryForeground)] hover:bg-primary/80'
                 : 'bg-[var(--primary)] text-[var(--primaryForeground)] hover:bg-primary/80'
-            }`}
+            } ${isActivePackage ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={() => mutation.mutate({ packageType: pkg.name })}
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || isActivePackage}
           >
-            {mutation.isPending ? 'Đang xử lý...' : 'Đăng ký ngay'}
+            {isActivePackage
+              ? 'Đã kích hoạt'
+              : mutation.isPending
+              ? 'Đang xử lý...'
+              : 'Đăng ký ngay'}
           </Button>
         </CardFooter>
       </Card>
@@ -126,6 +142,9 @@ function PackageCard({ pkg }: { pkg: any }) {
 
 export default function DrivePass() {
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { user } = useAuthContext() // Get user data from AuthContext
 
   const {
     data: packages = [],
@@ -143,6 +162,17 @@ export default function DrivePass() {
       setError('Không thể tải danh sách gói dịch vụ. Vui lòng thử lại sau.')
     }
   }, [isError, queryError])
+
+  useEffect(() => {
+    const paymentStatus = searchParams.get('payment')
+    if (paymentStatus === 'success') {
+      toast.success('Thanh toán thành công! Gói DrivePass đã được kích hoạt.')
+      router.replace('/drivepass')
+    } else if (paymentStatus === 'fail') {
+      toast.error('Thanh toán thất bại. Vui lòng thử lại.')
+      router.replace('/drivepass')
+    }
+  }, [searchParams, router])
 
   if (isLoading) {
     return (
@@ -168,7 +198,7 @@ export default function DrivePass() {
   })
 
   return (
-    <div className="min-h-screen py-12 pt-16 px-4 sm:px-6 lg:px-8  text-[var(--foreground)]">
+    <div className="min-h-screen py-12 pt-16 px-4 sm:px-6 lg:px-8 text-[var(--foreground)]">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
         <div className="text-center mb-12">
@@ -185,7 +215,11 @@ export default function DrivePass() {
         {/* Pricing Cards */}
         <div className="flex flex-wrap justify-center gap-10 max-w-7xl mx-auto">
           {sortedPackages.map((pkg) => (
-            <PackageCard key={pkg._id} pkg={pkg} />
+            <PackageCard
+              key={pkg._id}
+              pkg={pkg}
+              currentMembership={user?.currentMembership}
+            />
           ))}
         </div>
 
