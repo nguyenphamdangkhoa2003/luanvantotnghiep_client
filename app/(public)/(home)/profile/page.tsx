@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useAuthContext } from '@/context/auth-provider'
@@ -19,12 +19,14 @@ import { AccountTab } from './_components/AccountTab'
 import { SecurityTab } from './_components/SecurityTab'
 import { DriverTab } from './_components/DriverTab'
 import { Skeleton } from '@/components/ui/skeleton'
-import { updateUserAvatarMutationFn } from '@/api/users/user'
+import {
+  updateUserAvatarMutationFn,
+  updateUserRoleMutationFn,
+} from '@/api/users/user'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { getUserProfileQueryFn } from '@/api/auths/auth'
 import MembershipTab from './_components/MembershipTab'
 import { Badge } from '@/components/ui/badge'
-
 export default function UserProfilePage() {
   const router = useRouter()
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
@@ -32,7 +34,7 @@ export default function UserProfilePage() {
   const [isLoading, setIsLoading] = useState(false)
   const { showError, ErrorAlertComponent } = useErrorAlert()
   const { user, isLoading: authLoading, error: authError } = useAuthContext()
-
+  const [hasAttemptedRoleUpdate, setHasAttemptedRoleUpdate] = useState(false)
   const { data, refetch } = useQuery({
     queryKey: ['user'],
     queryFn: getUserProfileQueryFn,
@@ -40,6 +42,46 @@ export default function UserProfilePage() {
 
   const currentUser = data?.data
   const isDriver = currentUser?.role === RoleEnum.DRIVER
+
+  const updateRoleMutation = useMutation({
+    mutationFn: (data: { role: string }) => updateUserRoleMutationFn(data),
+    onSuccess: () => {
+      toast.success('Cập nhật vai trò thành công', {
+        description: 'Người dùng đã được chuyển sang vai trò Tài xế',
+      })
+      setHasAttemptedRoleUpdate(true)
+      refetch()
+    },
+    onError: (error: any) => {
+      toast.error('Cập nhật vai trò thất bại', {
+        description: error.message || 'Đã xảy ra lỗi khi cập nhật vai trò',
+      })
+      setHasAttemptedRoleUpdate(false)
+    },
+  })
+  const isIdentityVerified =
+    currentUser?.identityDocument?.verificationStatus === 'approved'
+  const isDriverLicenseVerified =
+    currentUser?.driverLicense?.verificationStatus === 'approved'
+  const isDriverVehiclesVerified =
+    currentUser?.vehicles?.length > 0 &&
+    currentUser?.vehicles.every(
+      (vehicle:any) => vehicle.verificationStatus === 'approved'
+    )
+  const hasDataToVerify =
+    currentUser && (currentUser.identityDocument || currentUser.driverLicense)
+  const isFullyVerified =
+    hasDataToVerify && isIdentityVerified && isDriverLicenseVerified
+
+  useEffect(() => {
+    if (
+      isFullyVerified &&
+      currentUser?.role !== 'driver' &&
+      !hasAttemptedRoleUpdate
+    ) {
+      updateRoleMutation.mutate({ role: 'driver' })
+    }
+  }, [isFullyVerified, currentUser?.role, hasAttemptedRoleUpdate])
 
   const uploadAvatarMutation = useMutation({
     mutationFn: updateUserAvatarMutationFn,
@@ -72,7 +114,10 @@ export default function UserProfilePage() {
 
   const handleBack = () => router.back()
   const handleLogin = () => router.push('sign-in')
-
+  const FullyVerified =
+    isIdentityVerified &&
+    isDriverLicenseVerified &&
+    isDriverVehiclesVerified
   if (authLoading) {
     return (
       <div className="container mx-auto p-4 max-w-4xl pt-16 pb-10">
@@ -211,21 +256,15 @@ export default function UserProfilePage() {
 
             {isDriver && (
               <Badge
-                variant={
-                  currentUser?.identityVerified === 'VERIFIED'
-                    ? 'success'
-                    : 'warning'
-                }
+                variant={FullyVerified ? 'success' : 'warning'}
                 className="gap-1"
               >
-                {currentUser?.identityVerified === 'VERIFIED' ? (
+                {FullyVerified ? (
                   <MdOutlineVerified className="h-3 w-3" />
                 ) : (
                   <CiWarning className="h-3 w-3" />
                 )}
-                {currentUser?.identityVerified === 'VERIFIED'
-                  ? 'Đã xác minh'
-                  : 'Chưa xác minh'}
+                {FullyVerified ? 'Đã xác minh' : 'Chưa xác minh'}
               </Badge>
             )}
 
@@ -292,9 +331,9 @@ export default function UserProfilePage() {
             />
           </TabsContent>
 
-            <TabsContent value="driver" className="mt-6">
-              <DriverTab user={currentUser} refetchData={refetch} />
-            </TabsContent>
+          <TabsContent value="driver" className="mt-6">
+            <DriverTab user={currentUser} refetchData={refetch} />
+          </TabsContent>
 
           <TabsContent value="membership" className="mt-6">
             <MembershipTab userId={currentUser?._id || user._id} />

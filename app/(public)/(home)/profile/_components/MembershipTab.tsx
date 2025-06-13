@@ -154,22 +154,22 @@ const MembershipTab = ({ userId }: { userId: string }) => {
     )
   }
 
-  if (error && error.response?.status !== 404) {
-    return (
-      <div className="space-y-4">
-        <ErrorAlertComponent />
-        <div className="text-center py-8">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            Không tải được thông tin gói thành viên
-          </h3>
-          <p className="text-gray-600 mb-4">
-            Vui lòng thử lại sau hoặc liên hệ hỗ trợ
-          </p>
-          <Button onClick={() => refetch()}>Thử lại</Button>
-        </div>
-      </div>
-    )
-  }
+  // if (error && error.response?.status !== 404) {
+  //   return (
+  //     <div className="space-y-4">
+  //       <ErrorAlertComponent />
+  //       <div className="text-center py-8">
+  //         <h3 className="text-lg font-medium text-gray-900 mb-2">
+  //           Không tải được thông tin gói thành viên
+  //         </h3>
+  //         <p className="text-gray-600 mb-4">
+  //           Vui lòng thử lại sau hoặc liên hệ hỗ trợ
+  //         </p>
+  //         <Button onClick={() => refetch()}>Thử lại</Button>
+  //       </div>
+  //     </div>
+  //   )
+  // }
 
   const membership: Membership | null = data?.data || null
 
@@ -179,14 +179,6 @@ const MembershipTab = ({ userId }: { userId: string }) => {
         <h2 className="text-2xl font-bold text-gray-800">
           Quản lý gói thành viên
         </h2>
-        {!membership && (
-          <Button
-            className="bg-blue-600 hover:bg-blue-700"
-            onClick={() => router.push('/driverpass')}
-          >
-            Đăng ký gói mới
-          </Button>
-        )}
       </div>
 
       {!membership ? (
