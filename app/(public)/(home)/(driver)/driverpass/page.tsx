@@ -144,8 +144,7 @@ export default function DrivePass() {
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user } = useAuthContext() // Get user data from AuthContext
-
+  const { user } = useAuthContext() 
   const {
     data: packages = [],
     isLoading,

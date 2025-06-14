@@ -199,18 +199,6 @@ const MembershipTab = ({ userId }: { userId: string }) => {
       ) : (
         <div className="space-y-4">
           <MembershipCard membership={membership} onRenew={handleRenew} />
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-medium text-blue-800 mb-2">Lưu ý quan trọng</h4>
-            <ul className="text-sm text-blue-700 space-y-1 list-disc pl-5">
-              <li>
-                Gói sẽ tự động hết hạn sau ngày{' '}
-                {format(new Date(membership.endDate), 'dd/MM/yyyy')}
-              </li>
-              <li>Bạn có thể gia hạn gói trước 7 ngày hết hạn</li>
-              <li>Số yêu cầu sẽ được làm mới khi gia hạn gói</li>
-            </ul>
-          </div>
         </div>
       )}
     </div>

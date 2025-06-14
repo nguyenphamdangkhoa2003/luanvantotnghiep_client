@@ -83,7 +83,19 @@ const Header = () => {
       queryClient.invalidateQueries({ queryKey: ['requests', user?._id] })
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Không thể xử lý yêu cầu. Vui lòng thử lại.')
+      toast.error('Cảnh báo', {
+        description: 'Bạn chưa kích hoạt gói tài xế!',
+        action: {
+          label: 'Kích hoạt ngay',
+          onClick: () => router.push('/driverpass'),
+        },
+        className: 'border-2 border-red-500',
+        position: 'top-right',
+        style: {
+          backgroundColor: '#fff',
+          color: '#000',
+        },
+      })
     },
   })
 

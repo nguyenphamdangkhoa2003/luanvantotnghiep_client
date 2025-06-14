@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Bell, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -13,6 +14,7 @@ import {
 import { toast } from 'sonner'
 import { formatDistanceToNow, parseISO } from 'date-fns'
 import { vi } from 'date-fns/locale'
+import { TbExclamationCircleFilled } from 'react-icons/tb'
 
 interface User {
   _id: string
@@ -51,7 +53,7 @@ const Notifications = () => {
     isSuccess,
   } = useAuthContext()
   const queryClient = useQueryClient()
-
+  const router = useRouter()
   // Fetch requests for the driver
   const {
     data: response,
@@ -67,7 +69,6 @@ const Notifications = () => {
 
   // Extract the requests array from the response
   const requests = response?.data || []
-  console.log('Requests:', requests)
 
   // Mutation to handle request (accept/reject)
   const handleRequestMutation = useMutation({
@@ -77,7 +78,19 @@ const Notifications = () => {
       queryClient.invalidateQueries({ queryKey: ['requests', user?._id] })
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Không thể xử lý yêu cầu. Vui lòng thử lại.')
+      toast.error('Cảnh báo', {
+        description: 'Bạn chưa kích hoạt gói tài xế!',
+        action: {
+          label: 'Kích hoạt ngay',
+          onClick: () => router.push('/driverpass'),
+        },
+        className: 'border-2 border-red-500',
+        position: 'top-right',
+        style: {
+          backgroundColor: '#fff',
+          color: '#000',
+        },
+      })
     },
   })
 
