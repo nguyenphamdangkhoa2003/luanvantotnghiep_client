@@ -102,3 +102,11 @@ export const completeTripMutationFn = async (data: CompleteTripType) => {
 export const getRoutesByDriverQueryFn = async (userId: string) => {
   return await API.get(`/routes/driver/${userId}`)
 }
+
+export const getRoutesByPassengerQueryFn = async (userId: string) => {
+  return await API.get(`/routes/passenger/${userId}`)
+}
+
+export const getRequestsByUserIdQueryFn = async (userId: string) => {
+  return await API.get(`/routes/requests/user/${userId}`)
+}

@@ -489,7 +489,6 @@ const TripManage: React.FC = () => {
                       </TableCell>
                       <TableCell className="py-4 text-right pr-6">
                         <div className="flex justify-end gap-2">
-                          {route.status === 'active' && (
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -509,7 +508,6 @@ const TripManage: React.FC = () => {
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
-                          )}
                           {route.status !== 'cancelled' && (
                             <TooltipProvider>
                               <Tooltip>

@@ -95,13 +95,11 @@ export default function BookingPage() {
         // Tải kết quả
         await loadSearchResults(searchData)
       }
-      // Nếu không có params từ URL nhưng có dữ liệu trong localStorage
       else {
         const storedForm = localStorage.getItem('searchTripForm')
         if (storedForm) {
           const searchData = JSON.parse(storedForm)
 
-          // Kiểm tra xem có đủ dữ liệu để tìm kiếm không
           if (
             searchData.pickup &&
             searchData.dropoff &&
