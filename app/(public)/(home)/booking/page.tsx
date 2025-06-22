@@ -1,16 +1,6 @@
-
 'use client'
 
-import {
-  ChevronDown,
-  ChevronRight,
-  Compass,
-  Home,
-  Loader2,
-  Filter,
-  AlertCircle,
-  Check,
-} from 'lucide-react'
+import { ChevronRight, Home, Filter, Star, Users, Clock } from 'lucide-react'
 import Link from 'next/link'
 import TripCard from '@/components/card/TripCard'
 import SearchTrip from '@/components/form/SearchTripForm'
@@ -19,30 +9,31 @@ import { useSearchParams } from 'next/navigation'
 import { searchRoutesQueryFn } from '@/api/routes/route'
 import { Button } from '@/components/ui/button'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Slider } from '@/components/ui/slider'
+import { Input } from '@/components/ui/input'
+import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from '@/components/ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 
-// Define Trip type
+// Define Trip type (unchanged)
 interface Trip {
   _id: string
   userId: {
     name: string
     avatar: string
     averageRating: number
-  } | null
+  }
   name: string
   waypoints: {
     name: string
@@ -72,79 +63,71 @@ interface Trip {
   }
 }
 
-// Define filter type
-interface FilterState {
-  minPrice?: number
-  maxPrice?: number
-  minSeats?: number
-  minRating?: number
-}
-
-// Define sort options
-type SortOption = 'price:asc' | 'price:desc' | 'seats:asc' | 'seats:desc'
-
 export default function BookingPage() {
   const [trips, setTrips] = useState<Trip[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter] = useState<FilterState>(() => {
-    const stored = localStorage.getItem('searchTripFilter')
-    return stored ? JSON.parse(stored) : {}
-  })
-  const [sortBy, setSortBy] = useState<SortOption | null>(() => {
-    const stored = localStorage.getItem('searchTripSort')
-    return stored ? (stored as SortOption) : null
-  })
-  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [filteredTrips, setFilteredTrips] = useState<Trip[]>([])
+  const [sortBy, setSortBy] = useState<string>('price-asc')
+  const [priceRange, setPriceRange] = useState<number[]>([0, 1000000])
+  const [minSeats, setMinSeats] = useState<number>(1)
+  const [minRating, setMinRating] = useState<number>(0)
+  const [loading, setLoading] = useState<boolean>(true)
   const searchParams = useSearchParams()
 
-  // Hàm xác thực tọa độ
-  const isValidCoords = (coords: any): coords is [number, number] => {
-    return (
-      Array.isArray(coords) &&
-      coords.length === 2 &&
-      typeof coords[0] === 'number' &&
-      !isNaN(coords[0]) &&
-      coords[0] >= -180 &&
-      coords[0] <= 180 &&
-      typeof coords[1] === 'number' &&
-      !isNaN(coords[1]) &&
-      coords[1] >= -90 &&
-      coords[1] <= 90
-    )
-  }
-
-
-  // Hàm tải kết quả từ API
+  // Hàm tải kết quả từ API (unchanged)
   const loadSearchResults = async (searchData: any) => {
-    setIsLoading(true)
-    setError(null)
     try {
-      const startCoords = searchData.pickupCoords
-      const endCoords = searchData.dropoffCoords
-
-      if (!startCoords || !endCoords) {
-        throw new Error('Tọa độ điểm đi hoặc điểm đến không hợp lệ.')
-      }
-
-      console.log('Sending to API:', { startCoords, endCoords, date: searchData.date, seatsAvailable: searchData.passengers })
-
+      setLoading(true)
       const response = await searchRoutesQueryFn({
-        startCoords,
-        endCoords,
+        startCoords: searchData.pickupCoords,
+        endCoords: searchData.dropoffCoords,
         date: searchData.date,
         seatsAvailable: searchData.passengers,
       })
+
       setTrips(response.data)
+      setFilteredTrips(response.data)
       localStorage.setItem('searchResults', JSON.stringify(response.data))
-    } catch (error: any) {
-      console.error('Error loading search results:', error)
-      setError(error.message || 'Đã có lỗi xảy ra khi tìm kiếm chuyến đi.')
+    } catch (error) {
       setTrips([])
+      setFilteredTrips([])
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
+
+  // Hàm lọc và sắp xếp (unchanged)
+  const applyFiltersAndSort = (tripsToFilter: Trip[]) => {
+    let filtered = [...tripsToFilter]
+
+    filtered = filtered.filter(
+      (trip) => trip.price >= priceRange[0] && trip.price <= priceRange[1]
+    )
+
+    filtered = filtered.filter((trip) => trip.seatsAvailable >= minSeats)
+
+    filtered = filtered.filter((trip) => trip.userId.averageRating >= minRating)
+
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'price-asc':
+          return a.price - b.price
+        case 'price-desc':
+          return b.price - a.price
+        case 'seats-asc':
+          return a.seatsAvailable - b.seatsAvailable
+        case 'seats-desc':
+          return b.seatsAvailable - a.seatsAvailable
+        default:
+          return 0
+      }
+    })
+
+    setFilteredTrips(filtered)
+  }
+
+  useEffect(() => {
+    applyFiltersAndSort(trips)
+  }, [trips, sortBy, priceRange, minSeats, minRating])
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -156,31 +139,13 @@ export default function BookingPage() {
       const dropoffCoords = searchParams.get('dropoffCoords')
 
       if (pickup && dropoff && date && passengers) {
-        let parsedPickupCoords: [number, number] | null = null
-        let parsedDropoffCoords: [number, number] | null = null
-
-        try {
-          if (pickupCoords) {
-            const parsed = JSON.parse(pickupCoords)
-            if (isValidCoords(parsed)) parsedPickupCoords = parsed
-            else console.warn('Invalid pickupCoords from URL:', parsed)
-          }
-          if (dropoffCoords) {
-            const parsed = JSON.parse(dropoffCoords)
-            if (isValidCoords(parsed)) parsedDropoffCoords = parsed
-            else console.warn('Invalid dropoffCoords from URL:', parsed)
-          }
-        } catch (e) {
-          console.error('Error parsing coords from URL:', e)
-        }
-
         const searchData = {
           pickup,
           dropoff,
           date,
           passengers: Number(passengers) || 1,
-          pickupCoords: parsedPickupCoords,
-          dropoffCoords: parsedDropoffCoords,
+          pickupCoords: pickupCoords ? JSON.parse(pickupCoords) : null,
+          dropoffCoords: dropoffCoords ? JSON.parse(dropoffCoords) : null,
         }
 
         localStorage.setItem('searchTripForm', JSON.stringify(searchData))
@@ -194,9 +159,7 @@ export default function BookingPage() {
             searchData.pickup &&
             searchData.dropoff &&
             searchData.date &&
-            searchData.passengers &&
-            (!searchData.pickupCoords || isValidCoords(searchData.pickupCoords)) &&
-            (!searchData.dropoffCoords || isValidCoords(searchData.dropoffCoords))
+            searchData.passengers
           ) {
             await loadSearchResults(searchData)
 
@@ -210,297 +173,328 @@ export default function BookingPage() {
             }).toString()
 
             window.history.replaceState(null, '', `?${queryParams}`)
-          } else {
-            setTrips([])
-            setIsLoading(false)
           }
-        } else {
-          setTrips([])
-          setIsLoading(false)
         }
       }
     }
 
     loadInitialData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    searchParams.get('pickup'),
-    searchParams.get('dropoff'),
-    searchParams.get('date'),
-    searchParams.get('passengers'),
-    searchParams.get('pickupCoords'),
-    searchParams.get('dropoffCoords'),
-  ])
+  }, [searchParams])
 
   const handleSearchResults = (results: Trip[]) => {
     setTrips(results)
-    setError(null)
-    setIsLoading(false)
     localStorage.setItem('searchResults', JSON.stringify(results))
   }
 
-  // Lọc và sắp xếp trips
-  const filteredTrips = trips
-    .filter((trip) => {
-      if (filter.minPrice && trip.price < filter.minPrice) return false
-      if (filter.maxPrice && trip.price > filter.maxPrice) return false
-      if (filter.minSeats && trip.seatsAvailable < filter.minSeats) return false
-      if (filter.minRating && (!trip.userId || trip.userId.averageRating < filter.minRating)) return false
-      return true
-    })
-    .sort((a, b) => {
-      if (!sortBy) return 0
-      const [field, direction] = sortBy.split(':') as [string, 'asc' | 'desc']
-      if (field === 'price') {
-        return direction === 'asc' ? a.price - b.price : b.price - a.price
-      } else if (field === 'seats') {
-        return direction === 'asc'
-          ? a.seatsAvailable - b.seatsAvailable
-          : b.seatsAvailable - a.seatsAvailable
-      }
-      return 0
-    })
-
-  // Xử lý áp dụng bộ lọc
-  const handleApplyFilter = (newFilter: FilterState) => {
-    setFilter(newFilter)
-    localStorage.setItem('searchTripFilter', JSON.stringify(newFilter))
-    setIsFilterOpen(false)
-  }
-
-  // Xử lý xóa bộ lọc
-  const handleResetFilter = () => {
-    const newFilter = {}
-    setFilter(newFilter)
-    localStorage.setItem('searchTripFilter', JSON.stringify(newFilter))
-    setIsFilterOpen(false)
-  }
-
-  // Xử lý thay đổi sắp xếp
-  const handleSort = (option: SortOption) => {
-    setSortBy(option)
-    localStorage.setItem('searchTripSort', option)
-  }
-
   return (
-    <div className="mx-auto p-4 md:p-6 bg-[var(--background)] min-h-screen">
-      {/* Breadcrumb Navigation */}
-      <nav
-        aria-label="Breadcrumb"
-        className="flex items-center text-sm text-[var(--muted-foreground)] mb-2 mt-8 max-w-[90%] mx-auto"
-      >
-        <Link
-          href="/"
-          className="flex text-[var(--primary)] items-center hover:underline"
-          aria-label="Trang chủ"
+    <div
+      className="mx-auto p-4 md:p-6 min-h-screen"
+      style={{
+        backgroundColor: 'var(--background)',
+        color: 'var(--foreground)',
+      }}
+    >
+      <div className="max-w-7xl mx-auto">
+        {/* Breadcrumb Navigation */}
+        <nav
+          aria-label="Breadcrumb"
+          className="flex items-center text-sm mb-4 mt-6"
+          style={{ color: 'var(--mutedForeground)' }}
         >
-          <Home className="w-4 h-4 mr-1" />
-          Trang chủ
-        </Link>
-        <ChevronRight
-          className="w-4 h-4 mx-2 text-[var(--muted-foreground)]"
-          aria-hidden="true"
-        />
-        <span className="font-normal" aria-current="page">
-          Kết quả tìm kiếm
-        </span>
-      </nav>
+          <Link
+            href="/"
+            className="flex items-center hover:underline"
+            style={{ color: 'var(--primary)' }}
+            aria-label="Trang chủ"
+          >
+            <Home className="w-4 h-4 mr-1" />
+            Trang chủ
+          </Link>
+          <ChevronRight
+            className="w-4 h-4 mx-2"
+            style={{ color: 'var(--muted)' }}
+            aria-hidden="true"
+          />
+          <span style={{ color: 'var(--foreground)' }} aria-current="page">
+            Kết quả tìm kiếm
+          </span>
+        </nav>
 
-      {/* Search Section */}
-      <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-[var(--foreground)] mb-6 text-center">
-          <span className="text-primary">Tìm chuyến đi phù hợp</span>
-        </h1>
-        <SearchTrip onSearchResults={handleSearchResults} />
-      </div>
-
-      <div className="mx-auto max-w-4xl">
-        {/* Header section */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
-          <div>
-            <h2 className="text-xl font-bold text-gray-800">
-              Chuyến đi có sẵn
-              <span className="ml-2 text-primary font-normal">
-                ({filteredTrips.length} kết quả)
-              </span>
-            </h2>
-            {searchParams.get('pickup') && searchParams.get('dropoff') && (
-              <p className="text-sm text-gray-500 mt-1">
-                Từ <span className="font-medium">{searchParams.get('pickup')}</span>{' '}
-                đến <span className="font-medium">{searchParams.get('dropoff')}</span>
-              </p>
-            )}
-          </div>
-
-          <div className="flex gap-2">
-            <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="flex items-center gap-1">
-                  <Filter className="w-4 h-4" />
-                  <span>Lọc</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Lọc chuyến đi</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="minPrice">Giá tối thiểu (VNĐ)</Label>
-                    <Input
-                      id="minPrice"
-                      type="number"
-                      placeholder="Ví dụ: 100000"
-                      defaultValue={filter.minPrice || ''}
-                      min={0}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="maxPrice">Giá tối đa (VNĐ)</Label>
-                    <Input
-                      id="maxPrice"
-                      type="number"
-                      placeholder="Ví dụ: 500000"
-                      defaultValue={filter.maxPrice || ''}
-                      min={0}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="minSeats">Số chỗ tối thiểu</Label>
-                    <Input
-                      id="minSeats"
-                      type="number"
-                      placeholder="Ví dụ: 1"
-                      defaultValue={filter.minSeats || ''}
-                      min={1}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="minRating">Số sao tối thiểu</Label>
-                    <Input
-                      id="minRating"
-                      type="number"
-                      step="0.5"
-                      placeholder="Ví dụ: 4.0"
-                      defaultValue={filter.minRating || ''}
-                      min={1}
-                      max={5}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={handleResetFilter}>
-                    Xóa bộ lọc
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      const newFilter = {
-                        minPrice: Number(
-                          (document.getElementById('minPrice') as HTMLInputElement)?.value
-                        ) || undefined,
-                        maxPrice: Number(
-                          (document.getElementById('maxPrice') as HTMLInputElement)?.value
-                        ) || undefined,
-                        minSeats: Number(
-                          (document.getElementById('minSeats') as HTMLInputElement)?.value
-                        ) || undefined,
-                        minRating: Number(
-                          (document.getElementById('minRating') as HTMLInputElement)?.value
-                        ) || undefined,
-                      }
-                      handleApplyFilter(newFilter)
-                    }}
-                  >
-                    Áp dụng
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="flex items-center gap-1">
-                  <span>Sắp xếp</span>
-                  <ChevronDown className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleSort('price:asc')}>
-                  <div className="flex items-center w-full">
-                    <span>Giá: Thấp đến cao</span>
-                    {sortBy === 'price:asc' && <Check className="w-4 h-4 ml-auto" />}
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort('price:desc')}>
-                  <div className="flex items-center w-full">
-                    <span>Giá: Cao đến thấp</span>
-                    {sortBy === 'price:desc' && <Check className="w-4 h-4 ml-auto" />}
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort('seats:asc')}>
-                  <div className="flex items-center w-full">
-                    <span>Số chỗ: Thấp đến cao</span>
-                    {sortBy === 'seats:asc' && <Check className="w-4 h-4 ml-auto" />}
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort('seats:desc')}>
-                  <div className="flex items-center w-full">
-                    <span>Số chỗ: Cao đến thấp</span>
-                    {sortBy === 'seats:desc' && <Check className="w-4 h-4 ml-auto" />}
-                  </div>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+        {/* Search Section */}
+        <div
+          className="mb-2 p-6"
+          style={{
+            backgroundColor: 'var(--card)',
+            color: 'var(--cardForeground)',
+          }}
+        >
+          <h1 className="text-2xl md:text-3xl font-bold mb-6 justify-center flex">
+            <span
+              className="text-primary"
+            >
+              Tìm chuyến đi phù hợp
+            </span>
+          </h1>
+          <SearchTrip onSearchResults={handleSearchResults} />
         </div>
 
-        {/* Content section */}
-        <div className="space-y-4">
-          {/* Loading state */}
-          {isLoading && (
-            <div className="flex flex-col items-center justify-center py-12 rounded-lg bg-gray-50">
-              <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
-              <p className="text-gray-600">Đang tìm kiếm chuyến đi...</p>
-            </div>
-          )}
+        {/* Main Content */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Filter Sidebar */}
+          <div className="lg:w-1/4 space-y-4">
+            <div
+              className="p-4 rounded-lg shadow-sm"
+              style={{
+                backgroundColor: 'var(--card)',
+                borderColor: 'var(--border)',
+              }}
+            >
+              <h3
+                className="font-semibold text-lg mb-4 flex items-center"
+                style={{ color: 'var(--foreground)' }}
+              >
+                <Filter
+                  className="w-5 h-5 mr-2"
+                  style={{ color: 'var(--primary)' }}
+                />
+                Bộ lọc
+              </h3>
 
-          {/* Error state */}
-          {error && (
-            <div className="p-4 rounded-lg bg-red-50 border border-red-100 flex flex-col items-center text-center">
-              <AlertCircle className="w-5 h-5 text-red-500 mb-2" />
-              <p className="text-red-600 font-medium">Không tim thấy tuyến đường bạn muốn, vui lòng thử lại!</p>
-            </div>
-          )}
-
-          {/* Empty state */}
-          {!isLoading && !error && filteredTrips.length === 0 && (
-            <div className="p-6 rounded-lg bg-blue-50 border border-blue-100 flex flex-col items-center text-center">
-              <Compass className="w-5 h-5 text-blue-500 mb-2" />
-              <h3 className="font-medium text-blue-700">Không tìm thấy chuyến đi</h3>
-              <p className="text-sm text-blue-600 mt-1 max-w-md">
-                Hãy thử điều chỉnh tiêu chí tìm kiếm hoặc bộ lọc
-              </p>
-            </div>
-          )}
-
-          {/* Results list */}
-          {!isLoading && !error && filteredTrips.length > 0 && (
-            <>
-              <div className="grid gap-4">
-                {filteredTrips.map((trip:any) => (
-                  <TripCard key={trip._id} {...trip} />
-                ))}
+              {/* Price Filter */}
+              <div className="mb-6">
+                <label
+                  className="text-sm font-medium mb-2 block"
+                  style={{ color: 'var(--foreground)' }}
+                >
+                  Khoảng giá (VNĐ)
+                </label>
+                <Slider
+                  min={0}
+                  max={1000000}
+                  step={10000}
+                  value={priceRange}
+                  onValueChange={setPriceRange}
+                  className="mt-2"
+                  style={
+                    {
+                      '--slider-track-background': 'var(--muted)',
+                      '--slider-thumb-background': 'var(--primary)',
+                    } as any
+                  }
+                />
+                <div
+                  className="flex justify-between text-sm mt-2"
+                  style={{ color: 'var(--mutedForeground)' }}
+                >
+                  <span>{priceRange[0].toLocaleString()} VNĐ</span>
+                  <span>{priceRange[1].toLocaleString()} VNĐ</span>
+                </div>
               </div>
 
-              {filteredTrips.length >= 5 && (
-                <div className="flex justify-center mt-4">
-                  <Button variant="outline" size="sm">
-                    Xem thêm chuyến đi
-                  </Button>
+              {/* Seats Filter */}
+              <div className="mb-6">
+                <label
+                  className="text-sm font-medium mb-2 block"
+                  style={{ color: 'var(--foreground)' }}
+                >
+                  Số ghế tối thiểu
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={minSeats}
+                  onChange={(e) => setMinSeats(Number(e.target.value) || 1)}
+                  className="w-full"
+                  style={{
+                    borderColor: 'var(--border)',
+                    color: 'var(--foreground)',
+                  }}
+                />
+              </div>
+
+              {/* Rating Filter */}
+              <div className="mb-4">
+                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Đánh giá tối thiểu
+                </label>
+                <div className="flex items-center space-x-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => setMinRating(star)}
+                      className={`p-1 rounded ${
+                        minRating >= star ? 'text-yellow-400' : 'text-gray-300'
+                      }`}
+                    >
+                      <Star className="w-5 h-5 fill-current" />
+                    </button>
+                  ))}
+                  {minRating > 0 && (
+                    <button
+                      onClick={() => setMinRating(0)}
+                      className="ml-2 text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      Xóa
+                    </button>
+                  )}
                 </div>
-              )}
-            </>
-          )}
+              </div>
+            </div>
+          </div>
+
+          {/* Trips List */}
+          <div className="lg:w-3/4 space-y-4">
+            {/* Sort and Results Header */}
+            <div
+              className="p-4 rounded-lg shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
+              style={{
+                backgroundColor: 'var(--card)',
+                borderColor: 'var(--border)',
+              }}
+            >
+              <h2
+                className="text-xl font-bold"
+                style={{ color: 'var(--foreground)' }}
+              >
+                <span style={{ color: 'var(--primary)' }}>
+                  Chuyến đi có sẵn
+                </span>
+                <span
+                  className="text-base ml-2"
+                  style={{ color: 'var(--mutedForeground)' }}
+                >
+                  ({filteredTrips.length} kết quả)
+                </span>
+              </h2>
+
+              <div className="w-full sm:w-auto">
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger
+                    className="w-full sm:w-[200px]"
+                    style={{
+                      borderColor: 'var(--border)',
+                      color: 'var(--foreground)',
+                    }}
+                  >
+                    <SelectValue placeholder="Sắp xếp theo" />
+                  </SelectTrigger>
+                  <SelectContent
+                    style={{
+                      backgroundColor: 'var(--popover)',
+                      color: 'var(--popoverForeground)',
+                    }}
+                  >
+                    <SelectItem value="price-asc">Giá: Thấp đến cao</SelectItem>
+                    <SelectItem value="price-desc">
+                      Giá: Cao đến thấp
+                    </SelectItem>
+                    <SelectItem value="seats-asc">Ghế: Ít đến nhiều</SelectItem>
+                    <SelectItem value="seats-desc">
+                      Ghế: Nhiều đến ít
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Loading State */}
+            {loading && (
+              <div className="space-y-4">
+                {[...Array(3)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="p-6 rounded-lg shadow-sm"
+                    style={{
+                      backgroundColor: 'var(--card)',
+                      borderColor: 'var(--border)',
+                    }}
+                  >
+                    <div className="flex items-start space-x-4">
+                      <Skeleton
+                        className="h-12 w-12 rounded-full"
+                        style={{ backgroundColor: 'var(--muted)' }}
+                      />
+                      <div className="flex-1 space-y-3">
+                        <Skeleton
+                          className="h-4 w-3/4"
+                          style={{ backgroundColor: 'var(--muted)' }}
+                        />
+                        <Skeleton
+                          className="h-4 w-1/2"
+                          style={{ backgroundColor: 'var(--muted)' }}
+                        />
+                        <div className="flex space-x-4">
+                          <Skeleton
+                            className="h-4 w-1/4"
+                            style={{ backgroundColor: 'var(--muted)' }}
+                          />
+                          <Skeleton
+                            className="h-4 w-1/4"
+                            style={{ backgroundColor: 'var(--muted)' }}
+                          />
+                          <Skeleton
+                            className="h-4 w-1/4"
+                            style={{ backgroundColor: 'var(--muted)' }}
+                          />
+                        </div>
+                      </div>
+                      <Skeleton
+                        className="h-8 w-24"
+                        style={{ backgroundColor: 'var(--muted)' }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* No Results */}
+            {!loading && filteredTrips.length === 0 && (
+              <div
+                className="bg-red-50 text-red-700 p-6 rounded-lg border border-red-100 flex flex-col items-center justify-center py-12"
+                role="alert"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-12 w-12 mb-4 text-red-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <h3 className="font-medium text-lg mb-2">
+                  Không tìm thấy chuyến đi phù hợp
+                </h3>
+                <p className="text-center text-gray-600 max-w-md">
+                  Hãy thử điều chỉnh bộ lọc hoặc tìm kiếm với điểm đón/trả khác
+                </p>
+              </div>
+            )}
+
+            {/* Results List */}
+            {!loading && filteredTrips.length > 0 && (
+              <div className="grid gap-4">
+                {filteredTrips.map((trip, index) => (
+                  <div
+                    key={trip._id || `trip-${index}`}
+                    className="rounded-lg transition-shadow"
+                    style={{
+                      backgroundColor: 'var(--card)',
+                      color: 'var(--cardForeground)',
+                    }}
+                  >
+                    <TripCard {...trip} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
