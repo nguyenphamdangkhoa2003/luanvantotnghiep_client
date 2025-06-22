@@ -429,7 +429,7 @@ export default function ChatPage({ params }: Props) {
         console.warn(`Invalid timestamp: ${timestamp}`)
         return 'Unknown time'
       }
-      return format(date, 'HH:mm')
+      return format(date, 'dd/MM/yy HH:mm')
     } catch (error) {
       console.warn(`Error formatting timestamp: ${timestamp}`, error)
       return 'Unknown time'
@@ -563,7 +563,7 @@ export default function ChatPage({ params }: Props) {
               aria-label="Chat messages"
             >
               <div className="space-y-4">
-                {messages.map((msg) => (
+                {messages.map((msg: any) => (
                   <div
                     key={msg._id}
                     className={`flex ${
@@ -604,16 +604,8 @@ export default function ChatPage({ params }: Props) {
                           }`}
                         >
                           <span className="text-xs text-gray-500">
-                            {formatTimestamp(msg.timestamp)}
+                            {formatTimestamp(msg.createdAt)}
                           </span>
-                          {msg.senderId === userId && (
-                            <Check
-                              className={`h-3 w-3 ${
-                                msg.isRead ? 'text-blue-400' : 'text-gray-400'
-                              }`}
-                              strokeWidth={3}
-                            />
-                          )}
                         </div>
                       </div>
                     </div>

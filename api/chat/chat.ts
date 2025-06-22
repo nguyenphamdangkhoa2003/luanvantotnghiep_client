@@ -48,3 +48,8 @@ export const markMessageAsRead = async (
     );
     return response.data;
 };
+
+export const getConversationsMutationFn = async () => {
+  const response = await API.get('/chat/conversations')
+  return response.data
+}

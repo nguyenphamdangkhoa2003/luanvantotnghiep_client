@@ -1,4 +1,5 @@
 // import ChatFloatButton from "@/components/ChatFloatButton";
+import ChatFloatButton from "@/components/button/ButtonChat";
 import Footer from "@/components/layout/MainLayout/Footer";
 import Header from "@/components/layout/MainLayout/Header";
 import TanstackProvider from "@/components/provider/TanstackProvider";
@@ -16,7 +17,7 @@ function Homelayout({
         <AuthProvider>
           <Header />
           <main className="flex-grow mt-10">{children}</main>
-          {/* <ChatFloatButton /> */}
+          <ChatFloatButton />
           <Footer />
         </AuthProvider>
       </TanstackProvider>
