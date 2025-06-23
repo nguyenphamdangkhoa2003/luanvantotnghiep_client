@@ -34,3 +34,7 @@ export const checkReviewStatusQueryFn = async (
     `/reviews/check/${tripRequestId}?reviewerId=${reviewerId}`
   ).then((res) => res.data)
 }
+
+export const getAllReviewsQueryFn = async () => {
+  return await API.get('/reviews').then((res) => res.data)
+}
