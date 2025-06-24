@@ -9,6 +9,7 @@ type CreatePackageType = {
   acceptRequests: number
   price: number
   durationDays: number
+  description?: string[] 
 }
 
 type UpdatePackageType = {
@@ -16,6 +17,7 @@ type UpdatePackageType = {
   acceptRequests?: number
   price?: number
   durationDays?: number
+  description?: string[]
 }
 
 // Purchase membership

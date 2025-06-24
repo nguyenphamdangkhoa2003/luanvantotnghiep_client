@@ -24,25 +24,20 @@ const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('vi-VN').format(amount)
 }
 
-// Hàm tạo danh sách tính năng dựa trên dữ liệu
-const generateFeatures = (pkg: {
-  acceptRequests: number
-  durationDays: number
-}) => {
-  const baseFeatures = [
-    `Được nhận tối đa ${pkg.acceptRequests} chuyến xe`,
-    `Thời hạn sử dụng ${pkg.durationDays} ngày`,
-    'Hỗ trợ khách hàng 24/7',
-  ]
-  return [...baseFeatures]
-}
-
 // Child component for each package card
 function PackageCard({
   pkg,
   currentMembership,
 }: {
-  pkg: any
+  pkg: {
+    _id: string
+    name: string
+    acceptRequests: number
+    price: number
+    durationDays: number
+    description: string[]
+    popular?: boolean
+  }
   currentMembership: any
 }) {
   const [error, setError] = useState<string | null>(null)
@@ -58,15 +53,7 @@ function PackageCard({
     },
   })
 
-  const features = generateFeatures(pkg)
-  const period =
-    pkg.durationDays >= 365
-      ? 'năm'
-      : pkg.durationDays >= 30
-      ? 'tháng'
-      : pkg.durationDays >= 7
-      ? 'tuần'
-      : 'ngày'
+  
 
   const isActivePackage = currentMembership?.packageType === pkg.name
 
@@ -85,8 +72,8 @@ function PackageCard({
             : 'border'
         }`}
       >
-        <CardHeader className="pb-4">
-          <CardTitle className="text-2xl font-extrabold text-center text-[var(--primary)]">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-4xl font-extrabold text-center text-[var(--primary)]">
             {pkg.name}
           </CardTitle>
         </CardHeader>
@@ -98,18 +85,25 @@ function PackageCard({
                 {formatCurrency(pkg.price)}
               </span>
               <span className="ml-2 text-lg text-[var(--mutedForeground)]">
-                VNĐ/{period}
+                VNĐ
               </span>
             </div>
           </div>
 
           <ul className="space-y-3 text-lg">
-            {features.map((feature, idx) => (
-              <li key={idx} className="flex items-start">
+            {pkg.description.length > 0 ? (
+              pkg.description.map((desc, idx) => (
+                <li key={idx} className="flex items-start">
+                  <CheckCircle2 className="h-5 w-5 text-[var(--primary)] mt-0.5 mr-2 flex-shrink-0" />
+                  <span className="text-[var(--foreground)]">{desc}</span>
+                </li>
+              ))
+            ) : (
+              <li className="flex items-start">
                 <CheckCircle2 className="h-5 w-5 text-[var(--primary)] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-[var(--foreground)]">{feature}</span>
+                <span className="text-[var(--foreground)]">Không có mô tả</span>
               </li>
-            ))}
+            )}
           </ul>
         </CardContent>
 
@@ -144,7 +138,7 @@ export default function DrivePass() {
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user } = useAuthContext() 
+  const { user } = useAuthContext()
   const {
     data: packages = [],
     isLoading,

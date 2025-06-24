@@ -1,16 +1,18 @@
-// src/components/reviews/columns.tsx
 'use client'
 import { ColumnDef } from '@tanstack/react-table'
 import { DataTableColumnHeader } from '@/components/table/SortColumn'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Badge } from '@/components/ui/badge'
 import { formatVietnamDateTime } from '@/utils'
 
 export interface ReviewType {
   _id: string
-  reviewer: { _id: string; name: string }
-  reviewee: { _id: string; name: string }
-  tripRequest: { _id: string; startLocation: string; endLocation: string }
+  reviewer: { _id: string; name: string; email: string }
+  reviewee: { _id: string; name: string; email: string }
+  tripRequest: {
+    _id: string
+    startLocation: string
+    endLocation: string
+  } | null
   rating: number
   comment?: string
   reviewType: 'customer' | 'driver'
@@ -18,11 +20,12 @@ export interface ReviewType {
   updatedAt: string
 }
 
+// Tạo các cột cho bảng đánh giá
 export const createColumns = (
-  reviewType: 'customer' | 'driver'
+  loaiDanhGia: 'customer' | 'driver'
 ): ColumnDef<ReviewType>[] => [
   {
-    id: 'select',
+    id: 'chon',
     header: ({ table }) => (
       <Checkbox
         checked={
@@ -30,14 +33,16 @@ export const createColumns = (
           (table.getIsSomePageRowsSelected() && 'indeterminate')
         }
         onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label="Select all"
+        aria-label="Chọn tất cả"
+        className="translate-y-[2px]"
       />
     ),
     cell: ({ row }) => (
       <Checkbox
         checked={row.getIsSelected()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
+        aria-label="Chọn hàng"
+        className="translate-y-[2px]"
       />
     ),
     enableSorting: false,
@@ -47,22 +52,23 @@ export const createColumns = (
     accessorKey: 'reviewer',
     header: ({ column }) => (
       <DataTableColumnHeader
+        isomers
         column={column}
         title={
-          reviewType === 'customer'
-            ? 'Driver (Reviewer)'
-            : 'Customer (Reviewer)'
+          loaiDanhGia === 'customer'
+            ? 'Tài xế (Người đánh giá)'
+            : 'Khách hàng (Người đánh giá)'
         }
       />
     ),
     cell: ({ row }) => (
-      <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-        <div className="grid flex-1 text-left text-sm leading-tight">
+      <div className="flex items-center gap-2 px-1 py-1.5 text-sm">
+        <div className="grid flex-1 leading-tight">
           <span className="truncate font-medium">
             {row.original.reviewer.name}
           </span>
           <span className="truncate text-xs text-muted-foreground">
-            ID: {row.original.reviewer._id}
+            {row.original.reviewer.email ?? 'Không có email'}
           </span>
         </div>
       </div>
@@ -74,69 +80,55 @@ export const createColumns = (
       <DataTableColumnHeader
         column={column}
         title={
-          reviewType === 'customer'
-            ? 'Customer (Reviewee)'
-            : 'Driver (Reviewee)'
+          loaiDanhGia === 'customer'
+            ? 'Khách hàng (Được đánh giá)'
+            : 'Tài xế (Được đánh giá)'
         }
       />
     ),
     cell: ({ row }) => (
-      <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-        <div className="grid flex-1 text-left text-sm leading-tight">
+      <div className="flex items-center gap-2 px-1 py-1.5 text-sm">
+        <div className="grid flex-1 leading-tight">
           <span className="truncate font-medium">
             {row.original.reviewee.name}
           </span>
           <span className="truncate text-xs text-muted-foreground">
-            ID: {row.original.reviewee._id}
+            {row.original.reviewee.email ?? 'Không có email'}
           </span>
         </div>
       </div>
     ),
   },
-  {
-    accessorKey: 'tripRequest',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Trip" />
-    ),
-    cell: ({ row }) => (
-      <div className="text-sm">
-        <span className="block truncate">
-          From: {row.original.tripRequest.startLocation}
-        </span>
-        <span className="block truncate">
-          To: {row.original.tripRequest.endLocation}
-        </span>
-      </div>
-    ),
-  },
+ 
   {
     accessorKey: 'rating',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Rating" />
+      <DataTableColumnHeader column={column} title="Điểm số" />
     ),
-    cell: ({ row }) => `${row.original.rating}/5`,
+    cell: ({ row }) => (
+      <span className="font-medium">{row.original.rating}/5</span>
+    ),
     sortingFn: (rowA, rowB) => rowA.original.rating - rowB.original.rating,
   },
   {
     accessorKey: 'comment',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Comment" />
+      <DataTableColumnHeader column={column} title="Bình luận" />
     ),
-    cell: ({ row }) => row.original.comment || 'N/A',
+    cell: ({ row }) => (
+      <span className="truncate max-w-[200px]">
+        {row.original.comment || 'Không có'}
+      </span>
+    ),
   },
   {
     accessorKey: 'createdAt',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Created At" />
+      <DataTableColumnHeader column={column} title="Thời gian tạo" />
     ),
-    cell: ({ row }) => {
-      const date = new Date(row.original.createdAt)
-      return formatVietnamDateTime(date.toISOString())
-    },
-    sortingFn: (rowA, rowB) => {
-      const dateA = new Date(rowA.original.createdAt).getTime()
-      const dateB = new Date(rowB.original.createdAt).getTime()
-      return dateA - dateB
-    },
+    cell: ({ row }) => formatVietnamDateTime(row.original.createdAt),
+    sortingFn: (rowA, rowB) =>
+      new Date(rowA.original.createdAt).getTime() -
+      new Date(rowB.original.createdAt).getTime(),
   },
 ]

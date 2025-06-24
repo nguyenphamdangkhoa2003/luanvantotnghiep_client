@@ -22,6 +22,7 @@ export interface PassPackageType {
   acceptRequests: number
   price: number
   durationDays: number
+  description: string[] // Changed to non-optional with default empty array
 }
 
 export const createColumns = (
@@ -63,7 +64,8 @@ export const createColumns = (
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Số lượng yêu cầu" />
     ),
-    cell: ({ row }) => row.original.acceptRequests || 'N/A',
+    cell: ({ row }) =>
+      row.original.acceptRequests.toLocaleString('vi-VN') || 'N/A',
   },
   {
     accessorKey: 'price',
@@ -77,13 +79,31 @@ export const createColumns = (
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Thời hạn (ngày)" />
     ),
-    cell: ({ row }) => row.original.durationDays || 'N/A',
+    cell: ({ row }) =>
+      row.original.durationDays.toLocaleString('vi-VN') || 'N/A',
   },
   {
-    accessorKey: 'actions',
+    accessorKey: 'description',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Mô tả" />
+    ),
+    cell: ({ row }) => (
+      <ul className="list-disc pl-4">
+        {row.original.description.length > 0 ? (
+          row.original.description.map((desc, index) => (
+            <li key={index}>{desc}</li>
+          ))
+        ) : (
+          <li>Không có mô tả</li>
+        )}
+      </ul>
+    ),
+  },
+  {
+    id: 'actions',
     cell: ({ row, table }) => {
       const meta = table.options.meta as {
-        deletePackage?: (packageName: string) => void
+        deletePackage: (packageName: string) => void
       }
 
       return (
@@ -117,9 +137,7 @@ export const createColumns = (
                 description="Hành động này không thể hoàn tác. Gói pass sẽ bị xóa vĩnh viễn."
                 confirmText="Xóa"
                 onConfirm={() => {
-                  if (meta?.deletePackage) {
-                    meta.deletePackage(row.original.name)
-                  }
+                  meta.deletePackage(row.original.name)
                 }}
               >
                 <div className="flex gap-2 items-center cursor-pointer text-red-500">

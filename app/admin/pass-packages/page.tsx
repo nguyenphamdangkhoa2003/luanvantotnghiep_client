@@ -13,11 +13,10 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { DataTable } from './data-table'
-import { createColumns } from './columns'
+import { createColumns, PassPackageType } from './columns'
 import { AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
-import { PassPackageType } from './columns'
 import {
   getAllPackagesQueryFn,
   createPackageMutationFn,
@@ -36,6 +35,7 @@ export default function PassPackagesPage() {
     acceptRequests: '',
     price: '',
     durationDays: '',
+    descriptions: [''],
   })
   const [errors, setErrors] = useState<Partial<typeof formData>>({})
 
@@ -57,6 +57,7 @@ export default function PassPackagesPage() {
           acceptRequests: pkg.acceptRequests,
           price: pkg.price,
           durationDays: pkg.durationDays,
+          description: pkg.description || [],
         })),
       }
     },
@@ -73,7 +74,14 @@ export default function PassPackagesPage() {
       setOpenDialog(false)
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.data?.message || 'Lỗi tạo gói')
+      console.error('Create Package Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      })
+      const errorMessage =
+        error.response?.data?.message || 'Lỗi khi tạo gói, vui lòng thử lại'
+      toast.error(errorMessage)
     },
   })
 
@@ -88,20 +96,32 @@ export default function PassPackagesPage() {
       setOpenDialog(false)
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.data?.message || 'Lỗi cập nhật gói')
+      console.error('Update Package Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      })
+      const errorMessage =
+        error.response?.data?.message || 'Lỗi khi cập nhật gói'
+      toast.error(errorMessage)
     },
   })
 
   // Delete package mutation
   const deletePackageMutation = useMutation({
     mutationFn: deletePackageMutationFn,
-    onSuccess: (response) => {
-      console.log('Delete response:', response)
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pass-packages'] })
       toast.success('Xóa gói thành công')
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.data?.message || 'Lỗi xóa gói')
+      console.error('Delete Package Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      })
+      const errorMessage = error.response?.data?.message || 'Lỗi khi xóa gói'
+      toast.error(errorMessage)
     },
   })
 
@@ -112,6 +132,7 @@ export default function PassPackagesPage() {
       acceptRequests: '',
       price: '',
       durationDays: '',
+      descriptions: [''],
     })
     setErrors({})
   }
@@ -154,8 +175,9 @@ export default function PassPackagesPage() {
         acceptRequests: Number(formData.acceptRequests),
         price: Number(formData.price),
         durationDays: Number(formData.durationDays),
+        description: formData.descriptions.filter((desc) => desc.trim()),
       }
-
+      console.log('Sending packageData:', packageData)
       if (editingPackage) {
         await updatePackageMutation.mutateAsync({
           packageName: editingPackage.name,
@@ -164,8 +186,15 @@ export default function PassPackagesPage() {
       } else {
         await createPackageMutation.mutateAsync(packageData)
       }
-    } catch (error) {
-      toast.error('Lưu gói thất bại')
+    } catch (error: any) {
+      console.error('Submit Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      })
+      toast.error(
+        'Lưu gói thất bại: ' + (error.response?.data?.message || error.message)
+      )
     }
   }
 
@@ -176,6 +205,28 @@ export default function PassPackagesPage() {
     }
   }
 
+  const handleDescriptionChange = (index: number, value: string) => {
+    setFormData((prev) => {
+      const newDescriptions = [...prev.descriptions]
+      newDescriptions[index] = value
+      return { ...prev, descriptions: newDescriptions }
+    })
+  }
+
+  const addDescription = () => {
+    setFormData((prev) => ({
+      ...prev,
+      descriptions: [...prev.descriptions, ''],
+    }))
+  }
+
+  const removeDescription = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      descriptions: prev.descriptions.filter((_, i) => i !== index),
+    }))
+  }
+
   const handleOpenDialog = (pkg: PassPackageType | null = null) => {
     if (pkg) {
       setEditingPackage(pkg)
@@ -184,6 +235,7 @@ export default function PassPackagesPage() {
         acceptRequests: pkg.acceptRequests.toString(),
         price: pkg.price.toString(),
         durationDays: pkg.durationDays.toString(),
+        descriptions: pkg.description.length > 0 ? pkg.description : [''],
       })
     } else {
       resetForm()
@@ -192,7 +244,6 @@ export default function PassPackagesPage() {
   }
 
   const deletePackage = (packageName: string) => {
-    console.log('Deleting package:', packageName)
     deletePackageMutation.mutate(packageName)
   }
 
@@ -207,13 +258,6 @@ export default function PassPackagesPage() {
             <Skeleton className="h-10 w-full max-w-sm" />
           </div>
           <div className="space-y-4">
-            <div className="flex gap-4">
-              {Array(10)
-                .fill(0)
-                .map((_, i) => (
-                  <Skeleton key={`header-${i}`} className="h-10 flex-1" />
-                ))}
-            </div>
             {Array(5)
               .fill(0)
               .map((_, rowIndex) => (
@@ -299,10 +343,16 @@ export default function PassPackagesPage() {
                 <Input
                   id="acceptRequests"
                   type="number"
+                  min="1"
                   value={formData.acceptRequests}
                   onChange={(e) =>
                     handleInputChange('acceptRequests', e.target.value)
                   }
+                  onKeyPress={(e) => {
+                    if (!/[0-9]/.test(e.key)) {
+                      e.preventDefault()
+                    }
+                  }}
                   placeholder="VD: 500"
                   disabled={
                     createPackageMutation.isPending ||
@@ -320,8 +370,14 @@ export default function PassPackagesPage() {
                 <Input
                   id="price"
                   type="number"
+                  min="1"
                   value={formData.price}
                   onChange={(e) => handleInputChange('price', e.target.value)}
+                  onKeyPress={(e) => {
+                    if (!/[0-9]/.test(e.key)) {
+                      e.preventDefault()
+                    }
+                  }}
                   placeholder="VD: 500000"
                   disabled={
                     createPackageMutation.isPending ||
@@ -337,10 +393,16 @@ export default function PassPackagesPage() {
                 <Input
                   id="durationDays"
                   type="number"
+                  min="1"
                   value={formData.durationDays}
                   onChange={(e) =>
                     handleInputChange('durationDays', e.target.value)
                   }
+                  onKeyPress={(e) => {
+                    if (!/[0-9]/.test(e.key)) {
+                      e.preventDefault()
+                    }
+                  }}
                   placeholder="VD: 30"
                   disabled={
                     createPackageMutation.isPending ||
@@ -352,6 +414,48 @@ export default function PassPackagesPage() {
                     {errors.durationDays}
                   </p>
                 )}
+              </div>
+              <div className="space-y-2">
+                <Label>Mô tả</Label>
+                {formData.descriptions.map((desc, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <Input
+                      value={desc}
+                      onChange={(e) =>
+                        handleDescriptionChange(index, e.target.value)
+                      }
+                      placeholder={`Mô tả ${index + 1}`}
+                      disabled={
+                        createPackageMutation.isPending ||
+                        updatePackageMutation.isPending
+                      }
+                    />
+                    {formData.descriptions.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={() => removeDescription(index)}
+                        disabled={
+                          createPackageMutation.isPending ||
+                          updatePackageMutation.isPending
+                        }
+                      >
+                        Xóa
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addDescription}
+                  disabled={
+                    createPackageMutation.isPending ||
+                    updatePackageMutation.isPending
+                  }
+                >
+                  Thêm Mô tả
+                </Button>
               </div>
               <DialogFooter>
                 <Button
@@ -390,7 +494,7 @@ export default function PassPackagesPage() {
             () =>
               queryClient.invalidateQueries({ queryKey: ['pass-packages'] }),
             (pkg) => handleOpenDialog(pkg),
-            () => setOpenDialog(true)
+            setOpenDialog
           )}
           data={passPackages}
           meta={{ deletePackage }}
