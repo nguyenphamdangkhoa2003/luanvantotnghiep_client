@@ -110,7 +110,6 @@ const Header = () => {
   const pendingRequests =
     requestResponse?.data.filter((request) => request.status === 'pending') ||
     []
-  console.log('Pending requests:', pendingRequests)
 
   // Query lấy danh sách routes
   const { data: routeResponse } = useQuery<RouteApiResponse>({
@@ -142,7 +141,6 @@ const Header = () => {
     completedRequestsResponse?.data.filter(
       (request) => request.status === 'completed'
     ) || []
-  console.log('Completed requests:', completedRequests)
 
   // Query kiểm tra trạng thái đánh giá
   const reviewStatusQueries = useQuery<(ReviewCheckResponse | null)[]>({
@@ -163,7 +161,6 @@ const Header = () => {
         })
       )
       const results = await Promise.all(promises)
-      console.log('Review status results:', results)
       return results
     },
     enabled: completedRequests.length > 0 && !!user?._id && isSuccess,
@@ -177,7 +174,6 @@ const Header = () => {
       return reviewStatus && !reviewStatus.hasReviewed
     })
     .filter(Boolean)
-  console.log('Unrated requests:', unratedRequests)
 
   const completedRoutesWithRequests = routes.filter((route) =>
     unratedRequests.some((req) => req.routeId._id === route._id)
@@ -326,25 +322,25 @@ const Header = () => {
         <div className="hidden md:flex space-x-6 text-lg font-medium text-[var(--foreground)]">
           <Link
             href="/"
-            className="text-primary hover:text-primary/80 transition"
+            className="text-[var(--primary)] hover:text-[var(--primary)]/80 transition-colors duration-150"
           >
             Trang chủ
           </Link>
           <Link
             href="/booking"
-            className="text-primary hover:text-primary/80 transition"
+            className="text-[var(--primary)] hover:text-[var(--primary)]/80 transition-colors duration-150"
           >
             Đặt trước
           </Link>
           <Link
             href="/contact"
-            className="text-primary hover:text-primary/80 transition"
+            className="text-[var(--primary)] hover:text-[var(--primary)]/80 transition-colors duration-150"
           >
             Liên hệ
           </Link>
           <Link
             href="/about"
-            className="text-primary hover:text-primary/80 transition"
+            className="text-[var(--primary)] hover:text-[var(--primary)]/80 transition-colors duration-150"
           >
             Về chúng tôi
           </Link>
@@ -357,32 +353,35 @@ const Header = () => {
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  'relative hover:bg-[var(--muted)] hover:shadow-md',
+                  'relative hover:bg-[var(--muted)] hover:shadow-sm',
                   'transition-all duration-200 ease-in-out rounded-[var(--radius-md)] p-2'
                 )}
               >
                 <Bell size={20} className="text-[var(--foreground)]" />
                 {totalNotifications > 0 && (
-                  <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full" />
+                  <span className="absolute top-0 right-0 h-5 w-5 bg-red-500 text-white text-xs font-semibold rounded-full flex items-center justify-center">
+                    {totalNotifications > 9 ? '9+' : totalNotifications}
+                  </span>
                 )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               className={cn(
-                'w-64 sm:w-80 bg-[var(--card)] border-[var(--border)]',
-                'rounded-[var(--radius-md)] shadow-lg p-2 max-h-[80vh] overflow-y-auto'
+                'w-72 sm:w-96 bg-[var(--card)] border-[var(--border)]',
+                'rounded-xl shadow-lg p-3 max-h-[80vh] overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--primary)] scrollbar-track-[var(--card)]'
               )}
               side="bottom"
               align="end"
-              sideOffset={8}
+              sideOffset={10}
             >
               {reviewStatusQueries.isLoading ? (
                 <DropdownMenuItem
                   className={cn(
-                    'px-3 py-2 text-sm text-[var(--muted-foreground)]',
-                    'rounded-[var(--radius-sm)] text-center'
+                    'px-4 py-3 text-sm text-[var(--muted-foreground)] flex items-center justify-center gap-2',
+                    'rounded-lg'
                   )}
                 >
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Đang tải thông báo...
                 </DropdownMenuItem>
               ) : totalNotifications > 0 ? (
@@ -390,16 +389,16 @@ const Header = () => {
                   {/* Phần Yêu cầu mới */}
                   {isDriver && requestNotifications.length > 0 && (
                     <>
-                      <div className="px-3 py-1 text-xs font-semibold text-[var(--muted-foreground)]">
+                      <div className="px-4 py-2 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
                         Yêu cầu mới
                       </div>
                       {requestNotifications.map(({ data }) => (
                         <DropdownMenuItem
                           key={data._id}
                           className={cn(
-                            'flex flex-col items-start gap-1 px-3 py-2 text-sm text-[var(--foreground)]',
-                            'hover:bg-[var(--muted)] hover:shadow-sm',
-                            'transition-all duration-200 ease-in-out rounded-[var(--radius-sm)] cursor-default'
+                            'flex flex-col items-start gap-2 px-4 py-3 text-sm text-[var(--foreground)]',
+                            'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                            'transition-all duration-200 ease-in-out rounded-lg cursor-default'
                           )}
                         >
                           <span className="font-medium">
@@ -414,7 +413,7 @@ const Header = () => {
                             <Button
                               variant="default"
                               size="sm"
-                              className="bg-blue-500 hover:bg-blue-50 text-white hover:text-blue-600 text-xs"
+                              className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1.5 rounded-md"
                               onClick={() => handleAction(data._id, 'accept')}
                               disabled={handleRequestMutation.isPending}
                             >
@@ -427,7 +426,7 @@ const Header = () => {
                             <Button
                               variant="destructive"
                               size="sm"
-                              className="bg-red-500 hover:bg-red-50 text-white hover:text-gray-600 text-xs"
+                              className="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded-md"
                               onClick={() => handleAction(data._id, 'reject')}
                               disabled={handleRequestMutation.isPending}
                             >
@@ -441,7 +440,7 @@ const Header = () => {
                         </DropdownMenuItem>
                       ))}
                       {reviewNotifications.length > 0 && (
-                        <DropdownMenuSeparator className="my-1" />
+                        <DropdownMenuSeparator className="my-2 bg-[var(--border)]" />
                       )}
                     </>
                   )}
@@ -449,16 +448,16 @@ const Header = () => {
                   {/* Phần Cần đánh giá */}
                   {reviewNotifications.length > 0 && (
                     <>
-                      <div className="px-3 py-1 text-xs font-semibold text-[var(--muted-foreground)]">
+                      <div className="px-4 py-2 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
                         Cần đánh giá
                       </div>
                       {reviewNotifications.map(({ data }, index) => (
                         <DropdownMenuItem
                           key={`${data.route._id}-${data.request?._id}-${index}`}
                           className={cn(
-                            'flex flex-col items-start gap-1 px-3 py-2 text-sm text-[var(--foreground)]',
-                            'hover:bg-[var(--muted)] hover:shadow-sm',
-                            'transition-all duration-200 ease-in-out rounded-[var(--radius-sm)] cursor-default'
+                            'flex flex-col items-start gap-2 px-4 py-3 text-sm text-[var(--foreground)]',
+                            'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                            'transition-all duration-200 ease-in-out rounded-lg cursor-default'
                           )}
                         >
                           <span className="font-medium">
@@ -485,7 +484,7 @@ const Header = () => {
                             <Button
                               variant="default"
                               size="sm"
-                              className="bg-green-500 hover:bg-green-50 text-white hover:text-green-600 text-xs"
+                              className="bg-green-500 hover:bg-green-600 text-white text-xs px-3 py-1.5 rounded-md"
                               onClick={() =>
                                 handleReview(data.route, data.request._id)
                               }
@@ -499,13 +498,13 @@ const Header = () => {
                     </>
                   )}
 
-                  <DropdownMenuSeparator className="my-1" />
+                  <DropdownMenuSeparator className="my-2 bg-[var(--border)]" />
                   <DropdownMenuItem
                     asChild
                     className={cn(
-                      'flex items-center gap-2 px-3 py-2 text-sm text-[var(--primary)]',
-                      'hover:bg-[var(--muted)] hover:shadow-sm',
-                      'transition-all duration-200 ease-in-out rounded-[var(--radius-sm)] cursor-pointer'
+                      'flex items-center gap-2 px-4 py-2 text-sm text-[var(--primary)]',
+                      'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                      'transition-all duration-200 ease-in-out rounded-lg cursor-pointer'
                     )}
                   >
                     <Link href="/notifications">Xem thêm</Link>
@@ -514,10 +513,11 @@ const Header = () => {
               ) : (
                 <DropdownMenuItem
                   className={cn(
-                    'px-3 py-2 text-sm text-[var(--muted-foreground)]',
-                    'rounded-[var(--radius-sm)] text-center'
+                    'px-4 py-3 text-sm text-[var(--muted-foreground)] flex items-center justify-center gap-2',
+                    'rounded-lg'
                   )}
                 >
+                  <Bell size={16} className="text-[var(--muted-foreground)]" />
                   Không có thông báo mới
                 </DropdownMenuItem>
               )}
@@ -531,7 +531,7 @@ const Header = () => {
                   'bg-[var(--primary)] text-[var(--primary-foreground)]',
                   'hover:bg-[var(--primary)]/90 hover:shadow-md',
                   'transition-all duration-200 ease-in-out',
-                  'rounded-[var(--radius-md)] px-3 sm:px-4 py-2 text-sm'
+                  'rounded-lg px-4 py-2 text-sm font-medium'
                 )}
                 variant="default"
                 onClick={() => router.push('/sign-in')}
@@ -541,10 +541,10 @@ const Header = () => {
               <Button
                 variant="outline"
                 className={cn(
-                  'bg-[var(--secondary)] text-[var(--secondary-foreground)]',
-                  'border-[var(--border)] hover:bg-[var(--muted)] hover:shadow-md',
+                  'bg-[var(--card)] text-[var(--foreground)] border-[var(--border)]',
+                  'hover:bg-[var(--muted)] hover:shadow-md',
                   'transition-all duration-200 ease-in-out',
-                  'rounded-[var(--radius-md)] px-3 sm:px-4 py-2 text-sm'
+                  'rounded-lg px-4 py-2 text-sm font-medium'
                 )}
                 onClick={() => router.push('/sign-up')}
               >
@@ -559,15 +559,15 @@ const Header = () => {
                     variant="ghost"
                     size="lg"
                     className={cn(
-                      'flex items-center gap-2 p-1',
-                      'hover:bg-[var(--muted)] hover:shadow-md',
-                      'transition-all duration-200 ease-in rounded-[var(--radius)]'
+                      'flex items-center gap-2 p-2',
+                      'hover:bg-[var(--muted)] hover:shadow-sm',
+                      'transition-all duration-200 ease-in-out rounded-lg'
                     )}
                   >
                     <div
                       className={cn(
-                        'h-8 sm:h-9 w-8 sm:w-9 rounded-full bg-[var(--muted)]',
-                        'flex items-center justify-center shadow-sm'
+                        'h-9 w-9 rounded-full bg-[var(--muted)]',
+                        'flex items-center justify-center shadow-sm ring-1 ring-[var(--border)]'
                       )}
                     >
                       {user?.avatar ? (
@@ -600,59 +600,61 @@ const Header = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   className={cn(
-                    'w-[--radix-down-menu-trigger-width] min-w-52 sm:min-w-56',
-                    'bg-[var(--card)] border-[var(--border)] rounded-[var(--radius-md)]',
-                    'shadow-lg'
+                    'w-56 sm:w-64 bg-[var(--card)] border-[var(--border)]',
+                    'rounded-xl shadow-lg p-2 transition-all duration-200 ease-in-out'
                   )}
                   side="bottom"
                   align="end"
-                  sideOffset={8}
+                  sideOffset={10}
                 >
                   <DropdownMenuItem
                     onClick={() => router.push('/profile')}
                     className={cn(
-                      'flex items-center gap-2 px-3 py-2 text-sm text-[var(--foreground)]',
-                      'hover:bg-[var(--muted)] hover:shadow-sm',
-                      'transition-all duration-200 ease-in-out rounded-[var(--radius-sm)] cursor-pointer'
+                      'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
+                      'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                      'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]'
                     )}
                   >
-                    <MdAccountCircle size={16} />
+                    <MdAccountCircle size={18} />
                     <span>Hồ sơ</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => router.push('/historybooking')}
                     className={cn(
-                      'flex items-center gap-2 px-3 py-2 text-sm text-[var(--foreground)]',
-                      'hover:bg-[var(--muted)] hover:shadow-sm',
-                      'transition-all duration-200 ease-in-out rounded-[var(--radius-sm)] cursor-pointer'
+                      'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
+                      'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                      'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]'
                     )}
                   >
-                    <MdCalendarToday size={16} />
+                    <MdCalendarToday size={18} />
                     <span>Lịch sử hoạt động</span>
                   </DropdownMenuItem>
                   {user.role === RoleEnum.ADMIN && (
                     <DropdownMenuItem
                       onClick={() => router.push('/admin')}
                       className={cn(
-                        'flex items-center gap-2 px-3 py-2 text-sm text-[var(--foreground)]',
-                        'hover:bg-[var(--muted)] hover:shadow-sm',
-                        'transition-all duration-200 ease-in-out rounded-[var(--radius-sm)] cursor-pointer'
+                        'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
+                        'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                        'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]'
                       )}
                     >
-                      <MdOutlineAdminPanelSettings size={16} />
+                      <MdOutlineAdminPanelSettings size={18} />
                       <span>Trang quản trị</span>
                     </DropdownMenuItem>
                   )}
-                  <ThemeColorToggle />
+                  <DropdownMenuSeparator className="my-1 bg-[var(--border)]" />
+                  <div className=" py-2">
+                    <ThemeColorToggle />
+                  </div>
                   <DropdownMenuItem
                     onClick={() => setIsLogoutOpen(true)}
                     className={cn(
-                      'flex items-center gap-2 px-3 py-2 text-sm text-[var(--foreground)]',
-                      'hover:bg-[var(--muted)] hover:text-red-500',
-                      'transition-all duration-200 ease-in-out rounded-[var(--radius-sm)] cursor-pointer'
+                      'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
+                      'hover:bg-red-500 hover:text-white hover:shadow-sm',
+                      'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500'
                     )}
                   >
-                    <LogIn size={16} />
+                    <LogIn size={18} />
                     <span>Đăng xuất</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -665,8 +667,8 @@ const Header = () => {
             size="icon"
             onClick={() => setIsOpen(!isOpen)}
             className={cn(
-              'md:hidden hover:bg-[var(--muted)] hover:shadow-md',
-              'transition-all duration-200 ease-in-out rounded-[var(--radius-md)]'
+              'md:hidden hover:bg-[var(--muted)] hover:shadow-sm',
+              'transition-all duration-200 ease-in-out rounded-lg'
             )}
           >
             {isOpen ? <X size={24} /> : <Menu size={24} />}
@@ -676,49 +678,68 @@ const Header = () => {
 
       <div
         className={cn(
-          'fixed top-0 right-0 h-full w-64 sm:w-72 bg-white shadow-lg z-50',
-          'transform transition-all duration-200 ease-in-out',
-          isOpen ? '' : 'translate-x-full'
+          'fixed top-0 right-0 h-full w-72 sm:w-80 bg-[var(--card)] shadow-xl z-50',
+          'transform transition-all duration-300 ease-in-out border-l border-[var(--border)]',
+          isOpen ? 'translate-x-0' : 'translate-x-full'
         )}
       >
-        <div className="flex justify-end p-4">
+        <div className="flex justify-between items-center p-4 border-b border-[var(--border)]">
+          <span className="text-lg font-semibold text-[var(--foreground)]">
+            Menu
+          </span>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setIsOpen(false)}
             className={cn(
-              ' hover:bg-gray-50',
-              'transition-all duration-200 ease-in-out rounded'
+              'hover:bg-[var(--muted)] hover:shadow-sm',
+              'transition-all duration-200 ease-in-out rounded-lg'
             )}
           >
-            <X size={24} />
+            <X size={24} className="text-[var(--foreground)]" />
           </Button>
         </div>
-        <div className="flex flex-col space-y-1 px-4">
+        <div className="flex flex-col space-y-2 p-4">
           <Link
             href="/"
-            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-gray-50 rounded-full w-full cursor-pointer"
+            className={cn(
+              'p-3 text-[var(--foreground)] text-sm font-medium',
+              'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+              'transition-all duration-200 ease-in-out rounded-lg'
+            )}
             onClick={() => setIsOpen(false)}
           >
             Trang chủ
           </Link>
           <Link
             href="/booking"
-            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-gray-50 rounded w-full cursor-pointer"
+            className={cn(
+              'p-3 text-[var(--foreground)] text-sm font-medium',
+              'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+              'transition-all duration-200 ease-in-out rounded-lg'
+            )}
             onClick={() => setIsOpen(false)}
           >
-            Đặt vé
+            Đặt trước
           </Link>
           <Link
             href="/contact"
-            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-gray-50 rounded w-full cursor-pointer"
+            className={cn(
+              'p-3 text-[var(--foreground)] text-sm font-medium',
+              'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+              'transition-all duration-200 ease-in-out rounded-lg'
+            )}
             onClick={() => setIsOpen(false)}
           >
             Liên hệ
           </Link>
           <Link
             href="/about"
-            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-gray-50 rounded w-full cursor-pointer"
+            className={cn(
+              'p-3 text-[var(--foreground)] text-sm font-medium',
+              'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+              'transition-all duration-200 ease-in-out rounded-lg'
+            )}
             onClick={() => setIsOpen(false)}
           >
             Về chúng tôi
@@ -729,8 +750,9 @@ const Header = () => {
               <Button
                 variant="default"
                 className={cn(
-                  'w-full bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md',
-                  'transition-all duration-200 ease-in rounded py-2 text-sm'
+                  'w-full bg-[var(--primary)] text-[var(--primary-foreground)]',
+                  'hover:bg-[var(--primary)]/90 hover:shadow-md',
+                  'transition-all duration-200 ease-in-out rounded-lg py-2.5 text-sm font-medium'
                 )}
                 onClick={() => {
                   router.push('/sign-in')
@@ -742,8 +764,9 @@ const Header = () => {
               <Button
                 variant="outline"
                 className={cn(
-                  'w-full bg-white text-gray-600 border-gray-300 hover:bg-gray-50 hover:shadow-md',
-                  'transition-all duration-200 ease-in rounded py-2 text-sm'
+                  'w-full bg-[var(--card)] text-[var(--foreground)] border-[var(--border)]',
+                  'hover:bg-[var(--muted)] hover:shadow-md',
+                  'transition-all duration-200 ease-in-out rounded-lg py-2.5 text-sm font-medium'
                 )}
                 onClick={() => {
                   router.push('/sign-up')
@@ -761,107 +784,108 @@ const Header = () => {
                     variant="ghost"
                     size="lg"
                     className={cn(
-                      'flex items-center gap-2 p-2 w-full justify-start',
-                      'hover:bg-gray-50 hover:shadow-md',
-                      'transition-all duration-200 ease-in rounded'
+                      'flex items-center gap-3 p-3 w-full justify-start',
+                      'hover:bg-[var(--muted)] hover:shadow-sm',
+                      'transition-all duration-200 ease-in-out rounded-lg'
                     )}
                   >
                     <div
                       className={cn(
-                        'h-9 w-9 rounded-full bg-gray-100',
-                        'flex items-center justify-center shadow-sm'
+                        'h-10 w-10 rounded-full bg-[var(--muted)]',
+                        'flex items-center justify-center shadow-sm ring-1 ring-[var(--border)]'
                       )}
                     >
                       {user?.avatar ? (
                         <Image
                           src={user.avatar}
-                          width={36}
-                          height={36}
+                          width={40}
+                          height={40}
                           alt="Avatar"
                           className="rounded-full object-cover"
                         />
                       ) : (
-                        <span className="text-sm font-semibold text-gray-600">
+                        <span className="text-base font-semibold text-[var(--foreground)]">
                           {user?.name?.split(' ')?.[0]?.charAt(0)}
                           {user?.name?.split(' ')?.[1]?.charAt(0)}
                         </span>
                       )}
                     </div>
                     <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold text-gray-600">
+                      <span className="truncate font-semibold text-[var(--foreground)]">
                         {user?.name}
                       </span>
-                      <span className="truncate text-xs text-gray-400">
+                      <span className="truncate text-xs text-[var(--muted-foreground)]">
                         {user?.email}
                       </span>
                     </div>
-                    <span className="ml-auto size-4 text-gray-400">
+                    <span className="ml-auto size-5 text-[var(--muted-foreground)]">
                       <CiMenuKebab />
                     </span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   className={cn(
-                    'w-64 mx-2 bg-white border-gray-200 rounded-lg shadow-sm p-2'
+                    'w-56 sm:w-64 bg-[var(--card)] border-[var(--border)]',
+                    'rounded-xl shadow-lg p-2 mx-2 transition-all duration-200 ease-in-out'
                   )}
                   side="bottom"
                   align="end"
-                  sideOffset={8}
+                  sideOffset={10}
                 >
                   <DropdownMenuItem
                     onClick={() => router.push('/profile')}
                     className={cn(
-                      'flex items-center gap-2 px-3 py-2 text-sm text-gray-600',
-                      'hover:bg-gray-50 hover:shadow-sm',
-                      'transition-all duration-200 ease-in rounded cursor-pointer'
+                      'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
+                      'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                      'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]'
                     )}
                   >
-                    <MdAccountCircle size={16} />
+                    <MdAccountCircle size={18} />
                     <span>Hồ sơ</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => router.push('/historybooking')}
                     className={cn(
-                      'flex items-center gap-2 px-3 py-2 text-sm text-gray-600',
-                      'hover:bg-gray-50 hover:shadow-sm',
-                      'transition-all duration-200 ease-in rounded cursor-pointer'
+                      'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
+                      'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                      'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]'
                     )}
                   >
-                    <MdCalendarToday size={16} />
+                    <MdCalendarToday size={18} />
                     <span>Lịch sử hoạt động</span>
                   </DropdownMenuItem>
                   {user.role === RoleEnum.ADMIN && (
                     <DropdownMenuItem
                       onClick={() => router.push('/admin')}
                       className={cn(
-                        'flex items-center gap-2 px-3 py-2 text-sm text-gray-600',
-                        'hover:bg-gray-50 hover:shadow-sm',
-                        'transition-all duration-200 ease-in rounded cursor-pointer'
+                        'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
+                        'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                        'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]'
                       )}
                     >
-                      <MdOutlineAdminPanelSettings size={16} />
+                      <MdOutlineAdminPanelSettings size={18} />
                       <span>Trang quản trị</span>
                     </DropdownMenuItem>
                   )}
-                  <ThemeColorToggle />
+                  <DropdownMenuSeparator className="my-1 bg-[var(--border)]" />
+                  <div className="py-2">
+                    <ThemeColorToggle />
+                  </div>
                   <DropdownMenuItem
                     onClick={() => setIsLogoutOpen(true)}
                     className={cn(
-                      'flex items-center gap-2 px-3 py-2 text-sm text-gray-600',
-                      'hover:bg-gray-50 hover:text-red-500',
-                      'transition-all duration-200 ease-in rounded cursor-pointer'
+                      'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
+                      'hover:bg-red-500 hover:text-white hover:shadow-sm',
+                      'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500'
                     )}
                   >
-                    <LogIn size={16} />
+                    <LogIn size={18} />
                     <span>Đăng xuất</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           )}
-          <div className="pt-4">
-            <ThemeModeToggle />
-          </div>
         </div>
       </div>
       <LogoutDialog isOpen={isLogoutOpen} setIsOpen={setIsLogoutOpen} />

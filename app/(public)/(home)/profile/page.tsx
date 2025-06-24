@@ -8,7 +8,7 @@ import { RoleEnum } from '@/types/enum'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { AlertCircle, Loader2, Star } from 'lucide-react'
 import { FaBan } from 'react-icons/fa'
 import { CiWarning } from 'react-icons/ci'
 import { MdOutlineVerified } from 'react-icons/md'
@@ -27,6 +27,8 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { getUserProfileQueryFn } from '@/api/auths/auth'
 import MembershipTab from './_components/MembershipTab'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
+
 export default function UserProfilePage() {
   const router = useRouter()
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
@@ -35,6 +37,7 @@ export default function UserProfilePage() {
   const { showError, ErrorAlertComponent } = useErrorAlert()
   const { user, isLoading: authLoading, error: authError } = useAuthContext()
   const [hasAttemptedRoleUpdate, setHasAttemptedRoleUpdate] = useState(false)
+
   const { data, refetch } = useQuery({
     queryKey: ['user'],
     queryFn: getUserProfileQueryFn,
@@ -59,6 +62,7 @@ export default function UserProfilePage() {
       setHasAttemptedRoleUpdate(false)
     },
   })
+
   const isIdentityVerified =
     currentUser?.identityDocument?.verificationStatus === 'approved'
   const isDriverLicenseVerified =
@@ -66,7 +70,7 @@ export default function UserProfilePage() {
   const isDriverVehiclesVerified =
     currentUser?.vehicles?.length > 0 &&
     currentUser?.vehicles.every(
-      (vehicle:any) => vehicle.verificationStatus === 'approved'
+      (vehicle: any) => vehicle.verificationStatus === 'approved'
     )
   const hasDataToVerify =
     currentUser && (currentUser.identityDocument || currentUser.driverLicense)
@@ -114,14 +118,14 @@ export default function UserProfilePage() {
 
   const handleBack = () => router.back()
   const handleLogin = () => router.push('sign-in')
+
   const FullyVerified =
-    isIdentityVerified &&
-    isDriverLicenseVerified &&
-    isDriverVehiclesVerified
+    isIdentityVerified && isDriverLicenseVerified && isDriverVehiclesVerified
+
   if (authLoading) {
     return (
       <div className="container mx-auto p-4 max-w-4xl pt-16 pb-10">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-card p-6 rounded-lg shadow">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-[var(--card)] p-6 rounded-lg shadow">
           <div className="flex items-center gap-4 w-full sm:w-auto">
             <Skeleton className="h-20 w-20 rounded-full" />
             <div className="sm:hidden space-y-2">
@@ -145,7 +149,7 @@ export default function UserProfilePage() {
               <Skeleton key={i} className="h-10 rounded-md" />
             ))}
           </div>
-          <div className="bg-card p-6 rounded-lg shadow">
+          <div className="bg-[var(--card)] p-6 rounded-lg shadow">
             <div className="space-y-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="space-y-2">
@@ -166,13 +170,13 @@ export default function UserProfilePage() {
   if (authError) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] px-4 pt-5">
-        <div className="max-w-md w-full p-6 bg-card rounded-lg shadow-lg border border-destructive">
+        <div className="max-w-md w-full p-6 bg-[var(--card)] rounded-lg shadow-lg border border-[var(--destructive)]">
           <div className="flex flex-col items-center text-center space-y-4">
-            <div className="p-3 bg-destructive/10 rounded-full">
-              <AlertCircle className="h-8 w-8 text-destructive" />
+            <div className="p-3 bg-[var(--destructive)]/10 rounded-full">
+              <AlertCircle className="h-8 w-8 text-[var(--destructive)]" />
             </div>
             <h2 className="text-2xl font-bold">Đã xảy ra lỗi</h2>
-            <p className="text-muted-foreground">
+            <p className="text-[var(--muted-foreground)]">
               {authError.message || 'Không thể tải dữ liệu người dùng'}
             </p>
             <div className="flex gap-3 pt-2">
@@ -190,13 +194,13 @@ export default function UserProfilePage() {
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] px-4 pt-5">
-        <div className="max-w-md w-full p-6 bg-card rounded-lg shadow-lg border">
+        <div className="max-w-md w-full p-6 bg-[var(--card)] rounded-lg shadow-lg border">
           <div className="flex flex-col items-center text-center space-y-4">
-            <div className="p-3 bg-muted rounded-full">
+            <div className="p-3 bg-[var(--muted)] rounded-full">
               <AlertCircle className="h-8 w-8" />
             </div>
             <h2 className="text-2xl font-bold">Không có dữ liệu</h2>
-            <p className="text-muted-foreground">
+            <p className="text-[var(--muted-foreground)]">
               Vui lòng đăng nhập để xem hồ sơ
             </p>
             <div className="flex gap-3 pt-2">
@@ -223,76 +227,109 @@ export default function UserProfilePage() {
       <ErrorAlertComponent />
 
       {/* Profile Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-card p-6 rounded-lg shadow">
-        <div className="relative">
-          <Avatar className="h-20 w-20">
-            {currentUser?.avatar ? (
-              <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-            ) : (
-              <AvatarFallback className="bg-muted">
-                {getInitials(currentUser?.name || user.name)}
-              </AvatarFallback>
+      <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-4 bg-[var(--card)] p-4 sm:p-6 rounded-lg shadow">
+        {/* Avatar and User Info */}
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-4 w-full sm:w-auto">
+          <div className="relative">
+            <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
+              {currentUser?.avatar ? (
+                <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+              ) : (
+                <AvatarFallback className="bg-[var(--muted)]">
+                  {getInitials(currentUser?.name || user.name)}
+                </AvatarFallback>
+              )}
+            </Avatar>
+            {isLoading && (
+              <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                <Loader2 className="h-5 w-5 animate-spin text-white" />
+              </div>
             )}
-          </Avatar>
-          {isLoading && (
-            <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-white" />
+          </div>
+          <div className="flex flex-col items-center sm:items-start gap-2 text-center sm:text-left">
+            <div className="flex flex-wrap justify-center sm:justify-start gap-2">
+              <h1 className="text-lg sm:text-2xl font-bold">
+                {currentUser?.name || user.name}
+              </h1>
+
+              {currentUser?.banned && (
+                <Badge variant="destructive" className="gap-1">
+                  <FaBan className="h-3 w-3" />
+                  Bị khóa
+                </Badge>
+              )}
+
+              {isDriver && (
+                <Badge
+                  variant={FullyVerified ? 'success' : 'warning'}
+                  className="gap-1"
+                >
+                  {FullyVerified ? (
+                    <MdOutlineVerified className="h-3 w-3" />
+                  ) : (
+                    <CiWarning className="h-3 w-3" />
+                  )}
+                  {FullyVerified ? 'Đã xác minh' : 'Chưa xác minh'}
+                </Badge>
+              )}
+
+              <Badge variant="outline" className="text-[var(--primary)]">
+                {currentUser?.role || user.role}
+              </Badge>
             </div>
-          )}
+
+            <p className="text-sm sm:text-base text-[var(--muted-foreground)]">
+              {currentUser?.email || user.email}
+            </p>
+
+            {currentUser?.currentMembership?.packageType && (
+              <div className="flex flex-wrap justify-center sm:justify-start gap-2">
+                <Badge variant="secondary" className="gap-1">
+                  <span className="font-medium">Gói:</span>
+                  <span className="text-[var(--primary)] capitalize">
+                    {currentUser.currentMembership.packageType.toLowerCase()}
+                  </span>
+                </Badge>
+                <Badge variant="secondary" className="gap-1">
+                  <span className="font-medium">Yêu cầu còn lại:</span>
+                  <span className="text-[var(--primary)]">
+                    {currentUser.currentMembership.remainingRequests}
+                  </span>
+                </Badge>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="flex-1 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold">
-              {currentUser?.name || user.name}
-            </h1>
-
-            {currentUser?.banned && (
-              <Badge variant="destructive" className="gap-1">
-                <FaBan className="h-3 w-3" />
-                Bị khóa
-              </Badge>
-            )}
-
-            {isDriver && (
-              <Badge
-                variant={FullyVerified ? 'success' : 'warning'}
-                className="gap-1"
-              >
-                {FullyVerified ? (
-                  <MdOutlineVerified className="h-3 w-3" />
-                ) : (
-                  <CiWarning className="h-3 w-3" />
-                )}
-                {FullyVerified ? 'Đã xác minh' : 'Chưa xác minh'}
-              </Badge>
-            )}
-
-            <Badge variant="outline" className="text-primary">
-              {currentUser?.role || user.role}
-            </Badge>
-          </div>
-
-          <p className="text-muted-foreground">
-            {currentUser?.email || user.email}
-          </p>
-
-          {currentUser?.currentMembership?.packageType && (
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <Badge variant="secondary" className="gap-1">
-                <span className="font-medium">Gói:</span>
-                <span className="text-primary capitalize">
-                  {currentUser.currentMembership.packageType.toLowerCase()}
-                </span>
-              </Badge>
-              <Badge variant="secondary" className="gap-1">
-                <span className="font-medium">Yêu cầu còn lại:</span>
-                <span className="text-primary">
-                  {currentUser.currentMembership.remainingRequests}
-                </span>
-              </Badge>
+        {/* Rating and Reviews Link */}
+        <div className="flex flex-col items-center sm:items-end gap-2 w-full sm:absolute sm:top-6 sm:right-6">
+          {currentUser?.averageRating && currentUser?.ratingCount > 0 ? (
+            <div
+              className="flex items-center gap-1"
+              aria-label={`Đánh giá: ${currentUser.averageRating} sao từ ${currentUser.ratingCount} người`}
+            >
+              <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+              <span className="text-sm font-medium text-[var(--foreground)]">
+                {currentUser.averageRating.toFixed(1)}
+              </span>
+              <span className="text-xs text-[var(--muted-foreground)]">
+                ({currentUser.ratingCount} đánh giá)
+              </span>
             </div>
+          ) : (
+            <span className="text-xs text-[var(--muted-foreground)]">
+              Chưa có đánh giá
+            </span>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push(`/reviews/${user._id}`)}
+            className="h-10 w-full sm:w-auto px-4 text-[var(--primary)] border-[var(--border)] hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] rounded-lg"
+            aria-label="Xem nhận xét của người dùng"
+          >
+            Xem nhận xét
+          </Button>
         </div>
       </div>
 

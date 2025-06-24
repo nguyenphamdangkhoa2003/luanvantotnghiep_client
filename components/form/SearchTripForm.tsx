@@ -382,17 +382,18 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
                         setPickupOpen(true)
                       }
                     }}
-                    className="pl-10 h-11 rounded-lg border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] transition-all"
+                    className="pl-10 h-11 rounded-lg border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] transition-all duration-200"
                   />
                 </div>
               </PopoverTrigger>
               <PopoverContent
-                className="p-0 rounded-lg border border-[var(--border)] bg-[var(--card)] max-h-64 overflow-y-auto"
+                className="p-0 rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-lg max-h-80 w-[300px] sm:w-[400px] overflow-y-auto transition-all duration-200"
                 align="start"
-                sideOffset={6}
+                sideOffset={8}
               >
-                <Command className="rounded-lg">
-                  <div className="relative px-3 py-2 border-b border-[var(--border)]">
+                <Command className="rounded-xl bg-[var(--card)]">
+                  <div className="relative px-3 py-2 border-b border-[var(--border)] bg-[var(--card)]">
+                    <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)]" />
                     <CommandInput
                       placeholder="Tìm kiếm điểm đón..."
                       value={pickupQuery}
@@ -400,15 +401,15 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
                         setPickupQuery(value)
                         setValue('pickup', value)
                       }}
-                      className="pl-10 h-11 rounded-lg border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] transition-all text-sm bg-[var(--card)] text-[var(--foreground)]"
+                      className="pl-10 h-10 rounded-md border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] text-sm focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)] transition-all duration-150 placeholder:text-[var(--muted-foreground)]"
                     />
                   </div>
-                  <CommandList>
+                  <CommandList className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--primary)] scrollbar-track-[var(--card)]">
                     <CommandEmpty className="py-6 text-center text-sm text-[var(--muted-foreground)]">
                       Không tìm thấy kết quả
                     </CommandEmpty>
                     {pickupSuggestions.length > 0 && (
-                      <CommandGroup>
+                      <CommandGroup className="p-1">
                         {pickupSuggestions.map((suggestion) => (
                           <CommandItem
                             key={suggestion.place_id}
@@ -419,14 +420,12 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
                               setPickupCoords(suggestion.coordinates)
                               setPickupOpen(false)
                             }}
-                            className="px-4 py-2.5 text-sm cursor-pointer hover:bg-[var(--muted)] transition-colors"
+                            className="px-4 py-2.5 text-sm rounded-md cursor-pointer hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] transition-colors duration-150 flex items-center gap-2 text-[var(--foreground)]"
                           >
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4 text-[var(--muted-foreground)]" />
-                              <span className="truncate">
-                                {suggestion.description}
-                              </span>
-                            </div>
+                            <MapPin className="h-4 w-4 text-[var(--muted-foreground)] group-hover:text-[var(--primary-foreground)]" />
+                            <span className="truncate">
+                              {suggestion.description}
+                            </span>
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -462,17 +461,18 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
                         setDropoffOpen(true)
                       }
                     }}
-                    className="pl-10 h-11 rounded-lg border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] transition-all"
+                    className="pl-10 h-11 rounded-lg border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] transition-all duration-200"
                   />
                 </div>
               </PopoverTrigger>
               <PopoverContent
-                className="p-0 rounded-lg border border-[var(--border)] bg-[var(--card)] max-h-64 overflow-y-auto"
+                className="p-0 rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-lg max-h-80 w-[300px] sm:w-[400px] overflow-y-auto transition-all duration-200"
                 align="start"
-                sideOffset={6}
+                sideOffset={8}
               >
-                <Command className="rounded-lg">
-                  <div className="relative px-3 py-2 border-b border-[var(--border)]">
+                <Command className="rounded-xl bg-[var(--card)]">
+                  <div className="relative px-3 py-2 border-b border-[var(--border)] bg-[var(--card)]">
+                    <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)]" />
                     <CommandInput
                       placeholder="Tìm kiếm điểm đến..."
                       value={dropoffQuery}
@@ -480,15 +480,15 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
                         setDropoffQuery(value)
                         setValue('dropoff', value)
                       }}
-                      className="pl-10 h-11 rounded-lg border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] transition-all text-sm bg-[var(--card)] text-[var(--foreground)]"
+                      className="pl-10 h-10 rounded-md border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] text-sm focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)] transition-all duration-150 placeholder:text-[var(--muted-foreground)]"
                     />
                   </div>
-                  <CommandList>
+                  <CommandList className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--primary)] scrollbar-track-[var(--card)]">
                     <CommandEmpty className="py-6 text-center text-sm text-[var(--muted-foreground)]">
                       Không tìm thấy kết quả
                     </CommandEmpty>
                     {dropoffSuggestions.length > 0 && (
-                      <CommandGroup>
+                      <CommandGroup className="p-1">
                         {dropoffSuggestions.map((suggestion) => (
                           <CommandItem
                             key={suggestion.place_id}
@@ -499,14 +499,12 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
                               setDropoffCoords(suggestion.coordinates)
                               setDropoffOpen(false)
                             }}
-                            className="px-4 py-2.5 text-sm cursor-pointer hover:bg-[var(--muted)] transition-colors"
+                            className="px-4 py-2.5 text-sm rounded-md cursor-pointer hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] transition-colors duration-150 flex items-center gap-2 text-[var(--foreground)]"
                           >
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4 text-[var(--muted-foreground)]" />
-                              <span className="truncate">
-                                {suggestion.description}
-                              </span>
-                            </div>
+                            <MapPin className="h-4 w-4 text-[var(--muted-foreground)] group-hover:text-[var(--primary-foreground)]" />
+                            <span className="truncate">
+                              {suggestion.description}
+                            </span>
                           </CommandItem>
                         ))}
                       </CommandGroup>

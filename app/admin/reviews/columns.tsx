@@ -52,7 +52,6 @@ export const createColumns = (
     accessorKey: 'reviewer',
     header: ({ column }) => (
       <DataTableColumnHeader
-        isomers
         column={column}
         title={
           loaiDanhGia === 'customer'

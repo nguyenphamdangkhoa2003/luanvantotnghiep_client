@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ThemeColors } from '@/types/theme-types'
 import { Check } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 interface IThemeColor {
   name: string
@@ -68,63 +69,108 @@ export function ThemeColorToggle({ mobile = false }: ThemeColorToggleProps) {
     availableThemeColors[1]
 
   return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger
-        className={cn(
-          'w-full flex items-center justify-between px-3 py-2 text-sm',
-          'hover:bg-accent/50 rounded-lg cursor-pointer',
-          mobile ? 'h-10' : 'h-9'
-        )}
-      >
-        <div className="flex items-center gap-3">
-          <div
+    <div className="w-full">
+      {/* Desktop: Dropdown Menu (sm and above) */}
+      <div className="hidden sm:block">
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger
             className={cn(
-              'rounded-full w-5 h-5 shadow-sm',
-              theme === 'light' ? selectedColor.light : selectedColor.dark
+              'flex items-center justify-between px-4 py-2.5 text-sm text-[var(--foreground)]',
+              'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+              'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]',
+              mobile ? 'h-11' : 'h-10'
             )}
-          />
-          <span>Màu sắc</span>
-        </div>
-        {mobile && (
-          <span className={selectedColor.textColor}>{selectedColor.name}</span>
-        )}
-      </DropdownMenuSubTrigger>
-      <DropdownMenuPortal>
-        <DropdownMenuSubContent
-          className={cn(
-            'w-48 bg-background/95 backdrop-blur-lg border-border/40',
-            'rounded-lg shadow-lg p-2'
-          )}
-        >
-          <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-            Chọn màu sắc
-          </div>
-          <DropdownMenuSeparator className="border-border/40" />
-          {availableThemeColors.map((item) => (
-            <DropdownMenuItem
-              key={item.name}
-              onClick={() => setThemeColor(item.name as ThemeColors)}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className={cn(
+                  'rounded-full w-5 h-5 shadow-sm ring-1 ring-[var(--border)]',
+                  theme === 'light' ? selectedColor.light : selectedColor.dark
+                )}
+              />
+              <span>Màu sắc</span>
+            </div>
+            {mobile && (
+              <span
+                className={cn('text-xs font-medium', selectedColor.textColor)}
+              >
+                {selectedColor.name}
+              </span>
+            )}
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent
               className={cn(
-                'flex items-center justify-between px-3 py-2 text-sm rounded-md',
-                'hover:bg-accent/50 cursor-pointer'
+                'w-56 sm:w-64 bg-[var(--card)] border-[var(--border)]',
+                'rounded-xl shadow-lg p-2 transition-all duration-200 ease-in-out'
               )}
             >
-              <div className="flex items-center gap-3">
+              <div className="px-4 py-2 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+                Chọn màu sắc
+              </div>
+              <DropdownMenuSeparator className="my-1 bg-[var(--border)]" />
+              {availableThemeColors.map((item) => (
+                <DropdownMenuItem
+                  key={item.name}
+                  onClick={() => setThemeColor(item.name as ThemeColors)}
+                  className={cn(
+                    'flex items-center justify-between px-4 py-2.5 text-sm text-[var(--foreground)]',
+                    'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                    'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]'
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        'rounded-full w-5 h-5 shadow-sm ring-1 ring-[var(--border)]',
+                        theme === 'light' ? item.light : item.dark
+                      )}
+                    />
+                    <span>{item.name}</span>
+                  </div>
+                  {themeColor === item.name && (
+                    <Check className="h-4 w-4 text-[var(--primary-foreground)]" />
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+      </div>
+
+      {/* Mobile: Color Button Grid (below sm) */}
+      <div className="block sm:hidden">
+        <div className="px-4 py-2 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+          Chọn màu sắc
+        </div>
+        <div className="grid grid-cols-5 gap-2 px-4 py-2">
+          {availableThemeColors.map((item) => (
+            <Button
+              key={item.name}
+              variant="ghost"
+              size="icon"
+              onClick={() => setThemeColor(item.name as ThemeColors)}
+              className={cn(
+                'relative h-5 w-5 rounded-full',
+                'transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[var(--primary)]',
+                theme === 'light' ? item.light : item.dark
+              )}
+              aria-label={`Select ${item.name} color`}
+            >
+              {themeColor === item.name && (
                 <div
                   className={cn(
-                    'rounded-full w-5 h-5 shadow-sm',
-                    theme === 'light' ? item.light : item.dark
+                    'absolute inset-0 flex items-center justify-center',
+                    'rounded-lg border-2 border-[var(--primary)]'
                   )}
-                />
-                <span>{item.name}</span>
-              </div>
-              {themeColor === item.name && (
-                <Check className="h-4 w-4 text-primary" />
+                >
+                  <Check className="h-5 w-5 text-white" />
+                </div>
               )}
-            </DropdownMenuItem>
+            </Button>
           ))}
-        </DropdownMenuSubContent>
-      </DropdownMenuPortal>
-    </DropdownMenuSub>
+        </div>
+      </div>
+    </div>
   )
 }

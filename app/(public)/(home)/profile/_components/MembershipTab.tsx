@@ -145,15 +145,6 @@ const MembershipTab = ({ userId }: { userId: string }) => {
     renewMutation.mutate({ packageType })
   }
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-10 w-64 bg-gray-200 rounded animate-pulse" />
-        <div className="h-40 bg-gray-100 rounded-lg animate-pulse" />
-      </div>
-    )
-  }
-
   // if (error && error.response?.status !== 404) {
   //   return (
   //     <div className="space-y-4">
