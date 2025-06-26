@@ -44,7 +44,7 @@ export default function DriverReviewsPage() {
       }
       return getReviewsReceivedByUserQueryFn(userId)
     },
-    enabled: !!userId, // Only fetch if userId is defined
+    enabled: !!userId, 
     select: (data) => (Array.isArray(data) ? data : data.data || []),
   })
 

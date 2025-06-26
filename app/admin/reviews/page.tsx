@@ -7,86 +7,84 @@ import { DataTable } from './data-table'
 import { AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ReviewType } from './columns'
+import { Review } from './columns'
 import { getAllReviewsQueryFn } from '@/api/reviews/review'
 
-// Component quản lý đánh giá
-function QuanLyDanhGia() {
-  const [danhGiaKhachHang, setDanhGiaKhachHang] = useState<ReviewType[]>([])
-  const [danhGiaTaiXe, setDanhGiaTaiXe] = useState<ReviewType[]>([])
-  const [khoiDongLai, setKhoiDongLai] = useState(0)
+// Component to manage reviews
+function ReviewManagement() {
+  const [customerReviews, setCustomerReviews] = useState<Review[]>([])
+  const [driverReviews, setDriverReviews] = useState<Review[]>([])
+  const [refetchTrigger, setRefetchTrigger] = useState(0)
 
   const { mutate, isPending, isError, error } = useMutation({
     mutationFn: getAllReviewsQueryFn,
     onSuccess: (response) => {
-      const duLieuDanhGia = response.data ?? []
-      console.log('Phản hồi API:', duLieuDanhGia)
+      const reviewData = response.data ?? []
+      console.log('API Response:', reviewData)
 
-      // Lọc và ánh xạ dữ liệu đánh giá của khách hàng
-      const duLieuDanhGiaKhachHang: ReviewType[] = duLieuDanhGia
-        .filter((danhGia: any) => danhGia?.reviewType === 'customer')
-        .map((danhGia: any) => ({
-          _id: danhGia._id ?? '',
+      // Filter and map customer review data
+      const customerReviewData: Review[] = reviewData
+        .filter((review: any) => review?.reviewType === 'customer')
+        .map((review: any) => ({
+          id: review.id ?? '',
           reviewer: {
-            _id: danhGia.reviewer?._id ?? '',
-            name: danhGia.reviewer?.name ?? 'Không xác định',
-            email: danhGia.reviewer?.email ?? 'N/A',
+            id: review.reviewer?.id ?? '',
+            name: review.reviewer?.name ?? 'Không xác định',
+            email: review.reviewer?.email ?? 'N/A',
           },
           reviewee: {
-            _id: danhGia.reviewee?._id ?? '',
-            name: danhGia.reviewee?.name ?? 'Không xác định',
-            email: danhGia.reviewee?.email ?? 'N/A',
+            id: review.reviewee?.id ?? '',
+            name: review.reviewee?.name ?? 'Không xác định',
+            email: review.reviewee?.email ?? 'N/A',
           },
-       
-          rating: danhGia.rating ?? 0,
-          comment: danhGia.comment ?? '',
-          reviewType: danhGia.reviewType ?? 'customer',
-          createdAt: danhGia.createdAt ?? '',
-          updatedAt: danhGia.updatedAt ?? '',
+          rating: review.rating ?? 0,
+          comment: review.comment ?? '',
+          reviewType: review.reviewType ?? 'customer',
+          createdAt: review.createdAt ?? '',
+          updatedAt: review.updatedAt ?? '',
         }))
 
-      // Lọc và ánh xạ dữ liệu đánh giá của tài xế
-      const duLieuDanhGiaTaiXe: ReviewType[] = duLieuDanhGia
-        .filter((danhGia: any) => danhGia?.reviewType === 'driver')
-        .map((danhGia: any) => ({
-          _id: danhGia._id ?? '',
+      // Filter and map driver review data
+      const driverReviewData: Review[] = reviewData
+        .filter((review: any) => review?.reviewType === 'driver')
+        .map((review: any) => ({
+          id: review.id ?? '',
           reviewer: {
-            _id: danhGia.reviewer?._id ?? '',
-            name: danhGia.reviewer?.name ?? 'Không xác định',
-            email: danhGia.reviewer?.email ?? 'N/A',
+            id: review.reviewer?.id ?? '',
+            name: review.reviewer?.name ?? 'Không xác định',
+            email: review.reviewer?.email ?? 'N/A',
           },
           reviewee: {
-            _id: danhGia.reviewee?._id ?? '',
-            name: danhGia.reviewee?.name ?? 'Không xác định',
-            email: danhGia.reviewee?.email ?? 'N/A',
+            id: review.reviewee?.id ?? '',
+            name: review.reviewee?.name ?? 'Không xác định',
+            email: review.reviewee?.email ?? 'N/A',
           },
-         
-          rating: danhGia.rating ?? 0,
-          comment: danhGia.comment ?? '',
-          reviewType: danhGia.reviewType ?? 'driver',
-          createdAt: danhGia.createdAt ?? '',
-          updatedAt: danhGia.updatedAt ?? '',
+          rating: review.rating ?? 0,
+          comment: review.comment ?? '',
+          reviewType: review.reviewType ?? 'driver',
+          createdAt: review.createdAt ?? '',
+          updatedAt: review.updatedAt ?? '',
         }))
 
-      setDanhGiaKhachHang(duLieuDanhGiaKhachHang)
-      setDanhGiaTaiXe(duLieuDanhGiaTaiXe)
+      setCustomerReviews(customerReviewData)
+      setDriverReviews(driverReviewData)
     },
-    onError: (loi: any) => {
-      console.error('Không thể tải đánh giá:', loi.message, loi.stack)
+    onError: (error: any) => {
+      console.error('Failed to load reviews:', error.message, error.stack)
     },
   })
 
-  // Gọi API khi component mount hoặc khi refetchTrigger thay đổi
+  // Fetch data when component mounts or refetchTrigger changes
   useEffect(() => {
     mutate()
-  }, [khoiDongLai, mutate])
+  }, [refetchTrigger, mutate])
 
-  // Hàm để làm mới dữ liệu
-  const taiLai = () => {
-    setKhoiDongLai((truoc) => truoc + 1)
+  // Function to refresh data
+  const refresh = () => {
+    setRefetchTrigger((prev) => prev + 1)
   }
 
-  // Hiển thị skeleton khi đang tải
+  // Display skeleton while loading
   if (isPending) {
     return (
       <div className="p-3">
@@ -102,18 +100,18 @@ function QuanLyDanhGia() {
               {Array(7)
                 .fill(0)
                 .map((_, i) => (
-                  <Skeleton key={`tieu-de-${i}`} className="h-10 flex-1" />
+                  <Skeleton key={`header-${i}`} className="h-10 flex-1" />
                 ))}
             </div>
             {Array(5)
               .fill(0)
-              .map((_, hangIndex) => (
-                <div key={`hang-${hangIndex}`} className="flex gap-4">
+              .map((_, rowIndex) => (
+                <div key={`row-${rowIndex}`} className="flex gap-4">
                   {Array(7)
                     .fill(0)
-                    .map((_, oIndex) => (
+                    .map((_, colIndex) => (
                       <Skeleton
-                        key={`o-${hangIndex}-${oIndex}`}
+                        key={`cell-${rowIndex}-${colIndex}`}
                         className="h-12 flex-1"
                       />
                     ))}
@@ -125,7 +123,7 @@ function QuanLyDanhGia() {
     )
   }
 
-  // Hiển thị lỗi nếu có
+  // Display error if any
   if (isError) {
     return (
       <div className="p-3">
@@ -159,14 +157,14 @@ function QuanLyDanhGia() {
           <TabsContent value="customer">
             <DataTable
               columns={createColumns('customer')}
-              data={danhGiaKhachHang}
+              data={customerReviews}
               reviewType="customer"
             />
           </TabsContent>
           <TabsContent value="driver">
             <DataTable
               columns={createColumns('driver')}
-              data={danhGiaTaiXe}
+              data={driverReviews}
               reviewType="driver"
             />
           </TabsContent>
@@ -176,4 +174,4 @@ function QuanLyDanhGia() {
   )
 }
 
-export default QuanLyDanhGia
+export default ReviewManagement

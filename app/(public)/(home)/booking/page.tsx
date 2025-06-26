@@ -7,7 +7,6 @@ import SearchTrip from '@/components/form/SearchTripForm'
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { searchRoutesQueryFn } from '@/api/routes/route'
-import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -17,13 +16,6 @@ import {
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 
 // Define Trip type (unchanged)

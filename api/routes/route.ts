@@ -56,7 +56,6 @@ type CompleteTripType = {
   tripRequestId: string
 }
 
-// Cancel route by driver
 export const cancelBookingMutationFn = async (data: CancelRequestType) => {
   return await API.post('/routes/cancel', data)
 }

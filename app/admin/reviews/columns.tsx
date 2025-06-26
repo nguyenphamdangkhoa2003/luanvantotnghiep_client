@@ -4,12 +4,12 @@ import { DataTableColumnHeader } from '@/components/table/SortColumn'
 import { Checkbox } from '@/components/ui/checkbox'
 import { formatVietnamDateTime } from '@/utils'
 
-export interface ReviewType {
-  _id: string
-  reviewer: { _id: string; name: string; email: string }
-  reviewee: { _id: string; name: string; email: string }
+export interface Review {
+  id: string
+  reviewer: { id: string; name: string; email: string }
+  reviewee: { id: string; name: string; email: string }
   tripRequest: {
-    _id: string
+    id: string
     startLocation: string
     endLocation: string
   } | null
@@ -20,12 +20,12 @@ export interface ReviewType {
   updatedAt: string
 }
 
-// Tạo các cột cho bảng đánh giá
+// Create columns for the review table
 export const createColumns = (
-  loaiDanhGia: 'customer' | 'driver'
-): ColumnDef<ReviewType>[] => [
+  reviewType: 'customer' | 'driver'
+): ColumnDef<Review>[] => [
   {
-    id: 'chon',
+    id: 'select',
     header: ({ table }) => (
       <Checkbox
         checked={
@@ -54,7 +54,7 @@ export const createColumns = (
       <DataTableColumnHeader
         column={column}
         title={
-          loaiDanhGia === 'customer'
+          reviewType === 'customer'
             ? 'Tài xế (Người đánh giá)'
             : 'Khách hàng (Người đánh giá)'
         }
@@ -79,7 +79,7 @@ export const createColumns = (
       <DataTableColumnHeader
         column={column}
         title={
-          loaiDanhGia === 'customer'
+          reviewType === 'customer'
             ? 'Khách hàng (Được đánh giá)'
             : 'Tài xế (Được đánh giá)'
         }
@@ -98,7 +98,6 @@ export const createColumns = (
       </div>
     ),
   },
- 
   {
     accessorKey: 'rating',
     header: ({ column }) => (

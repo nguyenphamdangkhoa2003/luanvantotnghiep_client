@@ -1,3 +1,4 @@
+'use client'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
@@ -19,14 +20,17 @@ import { Loader2 } from 'lucide-react'
 interface RouteRequestDialogProps {
   routeId: string
   seats: number
+  maxseat: number
 }
 
 export function RouteRequestDialog({
   routeId,
-  seats,
+  seats: initialSeats,
+  maxseat,
 }: RouteRequestDialogProps) {
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState('')
+  const [seats, setSeats] = useState(initialSeats) // Manage seats in state
 
   const mutation = useMutation({
     mutationFn: requestRouteMutationFn,
@@ -34,6 +38,7 @@ export function RouteRequestDialog({
       toast.success('Gửi yêu cầu đặt tuyến đường thành công')
       setOpen(false)
       setMessage('')
+      setSeats(initialSeats) // Reset seats after success
     },
     onError: (error) => {
       toast.error(error.message || 'Gửi yêu cầu thất bại')
@@ -47,6 +52,18 @@ export function RouteRequestDialog({
       seats,
       message: message.trim() || undefined,
     })
+  }
+
+  // Handle seats input change
+  const handleSeatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    const numValue = parseInt(value, 10)
+    // Only update if the value is a valid number and within the maxseat limit
+    if (!isNaN(numValue) && numValue >= 1 && numValue <= maxseat) {
+      setSeats(numValue)
+    } else if (value === '') {
+      setSeats(1) // Default to 1 if input is cleared
+    }
   }
 
   return (
@@ -96,9 +113,12 @@ export function RouteRequestDialog({
                 </Label>
                 <Input
                   id="seats"
+                  type="number"
                   value={seats}
-                  disabled
+                  onChange={handleSeatsChange}
                   className="mt-1 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+                  min={1}
+                  max={maxseat}
                 />
               </div>
             </div>

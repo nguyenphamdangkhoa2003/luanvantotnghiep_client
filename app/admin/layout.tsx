@@ -1,4 +1,5 @@
-import React from 'react';
+"use client"
+import React, { useEffect } from 'react';
 import {
     SidebarInset,
     SidebarProvider,
@@ -7,12 +8,21 @@ import {
 import { AppSidebar } from '@/components/layout/AdminLayout/AppSlidbar';
 import TanstackProvider from '@/components/provider/TanstackProvider';
 import { Toaster } from 'sonner';
+import { useAuthContext } from '@/context/auth-provider';
+import { useRouter } from 'next/navigation';
 
 function AdminLayout({
     children,
 }: Readonly<{
     children: React.ReactNode;
 }>) {
+    const router = useRouter()
+    const { user } = useAuthContext()
+    useEffect(() => {
+      if (user && user.role !== 'admin') {
+        router.push('/')
+      }
+    }, [user, router])
     return (
         <TanstackProvider>
             <SidebarProvider>

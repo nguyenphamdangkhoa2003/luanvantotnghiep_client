@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Table,
   TableBody,
@@ -10,72 +10,132 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Mail, User } from 'lucide-react'
+import { ArrowLeft, Mail, User, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
-import { getPassengersQueryFn } from '@/api/routes/route'
+import { toast } from 'sonner'
+import {
+  completeTripMutationFn,
+  getPassengersQueryFn,
+} from '@/api/routes/route'
+import React from 'react'
 
-// Interface for API response data
+interface User {
+  _id: string
+  name: string
+  email: string
+}
+
+interface Request {
+  _id: string
+  userId: User
+  routeId: string
+  status: 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'completed'
+  message?: string
+  seats: number
+  createdAt: string
+  updatedAt: string
+}
+
 interface Passenger {
   userId: string
   name: string
   email: string
-  requestId: string
+  requestId: {
+    requestId: Request
+  }
   createdAt: string
 }
 
+interface PassengerApiResponse {
+  data: Passenger[]
+}
+
+interface ApiError {
+  message: string
+  status?: number
+}
+
 interface PageProps {
-  params: Promise<{ id: string }> // Update to reflect params as a Promise
+  params: Promise<{ id: string }>
 }
 
 export default function PassengerList({ params }: PageProps) {
   const router = useRouter()
-  const resolvedParams = React.use(params) // Unwrap the params Promise
-  const routeId = resolvedParams.id // Access id after unwrapping
-  const [passengers, setPassengers] = useState<Passenger[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const resolvedParams = React.use(params)
+  const routeId = resolvedParams.id
 
-  console.log('Resolved Params:', resolvedParams)
-  console.log('RouteId:', routeId)
+  // Query để lấy danh sách hành khách
+  const { data, isLoading, error } = useQuery<PassengerApiResponse, ApiError>({
+    queryKey: ['passengers', routeId],
+    queryFn: () => getPassengersQueryFn({ routeId }),
+    enabled: !!routeId,
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+  })
 
-  // Fetch passengers when component mounts
-  useEffect(() => {
-    if (!routeId) {
-      setError('Không tìm thấy ID tuyến đường.')
-      setLoading(false)
-      return
-    }
+  // Mutation để hoàn thành chuyến đi
+  const completeTripMutation = useMutation<
+    unknown,
+    ApiError,
+    { tripRequestId: string }
+  >({
+    mutationFn: ({ tripRequestId }) =>
+      completeTripMutationFn({ tripRequestId }), 
+    onSuccess: () => {
+      toast.success('Chuyến đi đã được xác nhận hoàn thành')
+      queryClient.invalidateQueries({ queryKey: ['passengers', routeId] })
+    },
+    onError: (error) => {
+      toast.error('Lỗi khi xác nhận hoàn thành', {
+        description: error.message || 'Vui lòng thử lại sau',
+        position: 'top-right',
+      })
+    },
+  })
 
-    const fetchPassengers = async () => {
-      try {
-        setLoading(true)
-        const response = await getPassengersQueryFn({ routeId })
-        setPassengers(response.data || [])
-        setError(null)
-      } catch (err) {
-        setError('Không thể tải danh sách hành khách.')
-      } finally {
-        setLoading(false)
-      }
-    }
+  // Lọc hành khách để chỉ hiển thị những người có trạng thái khác 'cancelled'
+  const passengers = (data?.data || []).filter(
+    (passenger) => passenger.requestId.requestId.status !== 'cancelled'
+  )
 
-    fetchPassengers()
-  }, [routeId])
-
-  // Format createdAt date
+  // Format ngày giờ
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('vi-VN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
+    try {
+      return new Date(dateString).toLocaleString('vi-VN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+    } catch {
+      return 'Không rõ thời gian'
+    }
   }
 
+  // Lấy badge trạng thái
   const getStatusBadge = (passenger: Passenger) => {
-    return <Badge variant="success">Đã xác nhận</Badge>
+    switch (passenger.requestId.requestId.status) {
+      case 'accepted':
+        return <Badge variant="success">Đã xác nhận</Badge>
+      case 'completed':
+        return <Badge variant="success">Đã hoàn thành</Badge>
+      case 'pending':
+        return <Badge variant="secondary">Đang chờ</Badge>
+      default:
+        return (
+          <Badge variant="default">
+            {passenger.requestId.requestId.status}
+          </Badge>
+        )
+    }
+  }
+
+  // Xử lý hoàn thành chuyến đi
+  const handleComplete = (tripRequestId: string) => {
+    completeTripMutation.mutate({ tripRequestId })
   }
 
   return (
@@ -93,10 +153,13 @@ export default function PassengerList({ params }: PageProps) {
           </span>
         </div>
       </div>
-      {loading ? (
+
+      {isLoading ? (
         <div className="text-center py-12">Đang tải...</div>
       ) : error ? (
-        <div className="text-center py-12 text-red-500">{error}</div>
+        <div className="text-center py-12 text-red-500">
+          {error.message || 'Không thể tải danh sách hành khách.'}
+        </div>
       ) : passengers.length === 0 ? (
         <div className="text-center py-12">
           <User className="mx-auto h-12 w-12 text-gray-400" />
@@ -137,15 +200,23 @@ export default function PassengerList({ params }: PageProps) {
                 <TableCell>{getStatusBadge(passenger)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end space-x-2">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => {
-                        alert(`Xác nhận hành khách ${passenger.name}`)
-                      }}
-                    >
-                      Xác nhận
-                    </Button>
+                    {passenger.requestId.requestId.status === 'accepted' && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="bg-green-500 hover:bg-green-600 text-white"
+                        onClick={() =>
+                          handleComplete(passenger.requestId.requestId._id)
+                        }
+                        disabled={completeTripMutation.isPending}
+                      >
+                        {completeTripMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          'Hoàn thành'
+                        )}
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
