@@ -2,8 +2,7 @@
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Calendar } from '@/components/ui/calendar'
-import { Clock, MapPin, Users, Route, X, Plus } from 'lucide-react'
+import {  Clock, MapPin, Users, Route, X, Plus } from 'lucide-react'
 import { format, startOfToday } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { Calendar as CalendarIcon } from 'lucide-react'
@@ -34,42 +33,77 @@ import { UserLocationContext } from '@/hooks/use-user-location-context'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { createRouteMutationFn } from '@/api/routes/route'
+import { Calendar } from '@/components/ui/calendar'
+const routeSchema = z
+  .object({
+    departurePoint: z.string().min(1, 'Điểm đi là bắt buộc'),
+    destination: z.string().min(1, 'Điểm đến là bắt buộc'),
+    departureDate: z
+      .date({
+        required_error: 'Ngày đi là bắt buộc',
+        invalid_type_error: 'Ngày không hợp lệ',
+      })
+      .refine(
+        (date) => {
+          const today = startOfToday()
+          return date >= today
+        },
+        {
+          message: 'Ngày đi phải từ hôm nay trở đi',
+        }
+      ),
+    departureTime: z
+      .string()
+      .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Giờ đi không hợp lệ'),
+    endDate: z
+      .date({
+        required_error: 'Ngày đến là bắt buộc',
+        invalid_type_error: 'Ngày không hợp lệ',
+      })
+      .refine(
+        (date) => {
+          const today = startOfToday()
+          return date >= today
+        },
+        {
+          message: 'Ngày đến phải từ hôm nay trở đi',
+        }
+      ),
+    endTime: z
+      .string()
+      .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Giờ đến không hợp lệ'),
+    availableSeats: z.coerce
+      .number({
+        required_error: 'Vui lòng nhập số chỗ',
+        invalid_type_error: 'Vui lòng nhập số chỗ',
+      })
+      .min(1, 'Số chỗ tối thiểu là 1')
+      .max(6, 'Số chỗ tối đa là 6'),
+    price: z.coerce
+      .number({
+        required_error: 'Vui lòng nhập giá tiền',
+        invalid_type_error: 'Giá tiền phải là số',
+      })
+      .min(1000, 'Giá tiền tối thiểu là 1,000 VND')
+      .max(5000000, 'Giá tiền tối đa là 5,000,000 VND'),
+  })
+  .refine(
+    (data) => {
+      const start = new Date(data.departureDate)
+      const [startHours, startMinutes] = data.departureTime.split(':')
+      start.setHours(parseInt(startHours), parseInt(startMinutes), 0, 0)
 
-const routeSchema = z.object({
-  departurePoint: z.string().min(1, 'Điểm đi là bắt buộc'),
-  destination: z.string().min(1, 'Điểm đến là bắt buộc'),
-  departureDate: z
-    .date({
-      required_error: 'Ngày đi là bắt buộc',
-      invalid_type_error: 'Ngày không hợp lệ',
-    })
-    .refine(
-      (date) => {
-        const today = startOfToday()
-        return date >= today
-      },
-      {
-        message: 'Ngày đi phải từ hôm nay trở đi',
-      }
-    ),
-  availableSeats: z.coerce
-    .number({
-      required_error: 'Vui lòng nhập số chỗ',
-      invalid_type_error: 'Vui lòng nhập số chỗ',
-    })
-    .min(1, 'Số chỗ tối thiểu là 1')
-    .max(6, 'Số chỗ tối đa là 6'),
-  departureTime: z
-    .string()
-    .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Giờ đi không hợp lệ'),
-  price: z.coerce
-    .number({
-      required_error: 'Vui lòng nhập giá tiền',
-      invalid_type_error: 'Giá tiền phải là số',
-    })
-    .min(1000, 'Giá tiền tối thiểu là 1,000 VND')
-    .max(1000000, 'Giá tiền tối đa là 1,000,000 VND'),
-})
+      const end = new Date(data.endDate)
+      const [endHours, endMinutes] = data.endTime.split(':')
+      end.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0)
+
+      return end > start
+    },
+    {
+      message: 'Ngày giờ đến phải sau ngày giờ đi',
+      path: ['endTime'],
+    }
+  )
 
 type RouteFormData = z.infer<typeof routeSchema>
 
@@ -114,6 +148,8 @@ export default function RegistrationForm() {
       destination: '',
       departureDate: new Date(),
       departureTime: '08:00',
+      endDate: new Date(),
+      endTime: '12:00',
       availableSeats: 1,
       price: 10000,
     },
@@ -156,7 +192,7 @@ export default function RegistrationForm() {
   const [route, setRoute] = useState<any[]>([])
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const mapRef = useRef<MapRef>({ lastCoords: null })
+  const mapRef = useRef<any>({ lastCoords: null })
 
   // Ref for debounce timers
   const departureTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -466,9 +502,15 @@ export default function RegistrationForm() {
         throw new Error('Dữ liệu tuyến đường không đầy đủ')
       }
 
+      // Construct startTime
       const startDate = new Date(data.departureDate)
-      const [hours, minutes] = data.departureTime.split(':')
-      startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0)
+      const [startHours, startMinutes] = data.departureTime.split(':')
+      startDate.setHours(parseInt(startHours), parseInt(startMinutes), 0, 0)
+
+      // Construct endTime
+      const endDate = new Date(data.endDate)
+      const [endHours, endMinutes] = data.endTime.split(':')
+      endDate.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0)
 
       // Construct waypoints from API response
       const apiWaypoints = selectedRoute.waypoints || []
@@ -522,14 +564,15 @@ export default function RegistrationForm() {
           type: 'LineString',
           coordinates: selectedRoute.geometry.coordinates,
         },
-        distance: selectedRoute.distance,
-        duration: selectedRoute.duration,
+        distance: selectedRoute.distance / 1000, // Convert meters to kilometers
+        duration: selectedRoute.duration, // In seconds
         routeIndex: selectedRouteIndex,
         startTime: startDate.toISOString(),
+        endTime: endDate.toISOString(),
         price: data.price,
         seatsAvailable: data.availableSeats,
-        frequency: 'daily',
       }
+
       await createRouteMutationFn(routeData)
 
       toast('Thành công', {
@@ -541,7 +584,16 @@ export default function RegistrationForm() {
         style: { background: '#00fd15', color: '#fff' },
       })
 
-      reset()
+      reset({
+        departurePoint: '',
+        destination: '',
+        departureDate: new Date(),
+        departureTime: '08:00',
+        endDate: new Date(),
+        endTime: '12:00',
+        availableSeats: 1,
+        price: 10000,
+      })
       setDepartureQuery('')
       setDestinationQuery('')
       setDepartureCoords(null)
@@ -555,13 +607,10 @@ export default function RegistrationForm() {
       setNewWaypointSuggestions([])
       setIsAddingWaypoint(false)
     } catch (error: any) {
-      console.error(
-        'Error creating route:',
-        error.response?.data || error.message
-      )
+      
       toast('Lỗi', {
         description:
-          error.response?.data?.message ||
+          error.message ||
           'Không thể đăng ký tuyến đường. Vui lòng thử lại!',
         style: { background: '#ff3333', color: '#fff' },
       })
@@ -704,7 +753,7 @@ export default function RegistrationForm() {
                     </PopoverContent>
                   </Popover>
                   {errors.departurePoint && (
-                    <p className="text-sm text-[var(--destructive)] mt-1.5 flex items-center gap-1.5">
+                    <p className="text.sm text-[var(--destructive)] mt-1.5 flex items-center gap-1.5">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         className="h-4 w-4"
@@ -1092,6 +1141,104 @@ export default function RegistrationForm() {
                           />
                         </svg>
                         {errors.departureTime.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* End Date and Time */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
+                      <CalendarIcon className="w-4 h-4 text-[var(--primary)]" />
+                      Ngày đến
+                      <span className="text-[var(--destructive)]">*</span>
+                    </label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={'outline'}
+                          className={cn(
+                            'w-full justify-start text-left font-normal h-11 pl-3 border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]',
+                            !watch('endDate') &&
+                              'text-[var(--muted-foreground)]',
+                            'hover:border-[var(--ring)] focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]/20'
+                          )}
+                          aria-label="Chọn ngày đến"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4 text-[var(--muted-foreground)]" />
+                          {format(watch('endDate'), 'dd/MM/yyyy', {
+                            locale: vi,
+                          })}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 shadow-xl border-[var(--border)] bg-[var(--popover)]">
+                        <Calendar
+                          mode="single"
+                          selected={watch('endDate')}
+                          onSelect={(date) => date && setValue('endDate', date)}
+                          initialFocus
+                          fromDate={startOfToday()}
+                          locale={vi}
+                          className="border-0"
+                          classNames={{
+                            day_selected:
+                              'bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)]',
+                            day_today:
+                              'bg-[var(--accent)] text-[var(--foreground)]',
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    {errors.endDate && (
+                      <p className="text-sm text-[var(--destructive)] mt-1.5 flex items-center gap-1.5">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        {errors.endDate.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
+                      <Clock className="w-4 h-4 text-[var(--primary)]" />
+                      Giờ đến
+                      <span className="text-[var(--destructive)]">*</span>
+                    </label>
+                    <div className="relative">
+                      <Input
+                        type="time"
+                        {...register('endTime')}
+                        className="h-11 pl-10 rounded-lg border-[var(--border)] text-[var(--foreground)] hover:border-[var(--ring)] focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]/20"
+                        aria-label="Giờ đến"
+                      />
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)]" />
+                    </div>
+                    {errors.endTime && (
+                      <p className="text-sm text-[var(--destructive)] mt-1.5 flex items-center gap-1.5">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        {errors.endTime.message}
                       </p>
                     )}
                   </div>

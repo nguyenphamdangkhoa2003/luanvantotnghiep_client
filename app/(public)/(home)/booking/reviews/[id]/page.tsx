@@ -29,9 +29,8 @@ export default function DriverReviewsPage() {
   const params = useParams()
   const userId = params?.id as string | undefined
   const router = useRouter()
-  const [filterRating, setFilterRating] = useState<string>('all') // State for filter
+  const [filterRating, setFilterRating] = useState<string>('all')
 
-  // Fetch reviews using useQuery
   const {
     data: reviews = [],
     isLoading,
@@ -48,7 +47,6 @@ export default function DriverReviewsPage() {
     select: (data) => (Array.isArray(data) ? data : data.data || []),
   })
 
-  // Filter reviews based on selected rating
   const filteredReviews =
     filterRating === 'all'
       ? reviews
@@ -56,7 +54,6 @@ export default function DriverReviewsPage() {
           (review: Review) => review.rating === Number(filterRating)
         )
 
-  // Format timestamp for Vietnamese locale (UTC+7)
   const formatDate = (isoString: string) => {
     const date = new Date(isoString)
     return new Intl.DateTimeFormat('vi-VN', {

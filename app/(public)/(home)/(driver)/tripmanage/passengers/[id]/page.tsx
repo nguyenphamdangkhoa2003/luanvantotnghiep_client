@@ -41,7 +41,7 @@ interface Passenger {
   userId: string
   name: string
   email: string
-  requestId: {
+  request: {
     requestId: Request
   }
   createdAt: string
@@ -97,7 +97,7 @@ export default function PassengerList({ params }: PageProps) {
 
   // Lọc hành khách để chỉ hiển thị những người có trạng thái khác 'cancelled'
   const passengers = (data?.data || []).filter(
-    (passenger) => passenger.requestId.requestId.status !== 'cancelled'
+    (passenger) => passenger.request.requestId.status !== 'cancelled'
   )
 
   // Format ngày giờ
@@ -117,7 +117,7 @@ export default function PassengerList({ params }: PageProps) {
 
   // Lấy badge trạng thái
   const getStatusBadge = (passenger: Passenger) => {
-    switch (passenger.requestId.requestId.status) {
+    switch (passenger.request.requestId.status) {
       case 'accepted':
         return <Badge variant="success">Đã xác nhận</Badge>
       case 'completed':
@@ -127,7 +127,7 @@ export default function PassengerList({ params }: PageProps) {
       default:
         return (
           <Badge variant="default">
-            {passenger.requestId.requestId.status}
+            {passenger.request.requestId.status}
           </Badge>
         )
     }
@@ -200,13 +200,13 @@ export default function PassengerList({ params }: PageProps) {
                 <TableCell>{getStatusBadge(passenger)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end space-x-2">
-                    {passenger.requestId.requestId.status === 'accepted' && (
+                    {passenger.request.requestId.status === 'accepted' && (
                       <Button
                         variant="default"
                         size="sm"
                         className="bg-green-500 hover:bg-green-600 text-white"
                         onClick={() =>
-                          handleComplete(passenger.requestId.requestId._id)
+                          handleComplete(passenger.request.requestId._id)
                         }
                         disabled={completeTripMutation.isPending}
                       >

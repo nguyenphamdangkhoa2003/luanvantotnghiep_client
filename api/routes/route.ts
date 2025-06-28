@@ -1,21 +1,6 @@
 import API from '../api';
 
-type CreateRouteType = {
-    startAddress: string;
-    endAddress: string;
-    startCoords: { lng: number; lat: number };
-    endCoords: { lng: number; lat: number };
-    waypoints?: { type: string; coordinates: [number, number] }[];
-    path?: { type: string; coordinates: [number, number][] };
-    distance?: number;
-    duration?: number;
-    routeIndex?: number;
-    name: string;
-    startTime: string;
-    price: number;
-    seatsAvailable: number;
-    frequency?: string;
-};
+
 
 export type SearchRouteType = {
     startCoords?: { lng: number; lat: number };
@@ -66,7 +51,7 @@ export const getRouteByIdQueryFn = async (routeId: string) => {
 };
 
 // Create a new route (DRIVER only)
-export const createRouteMutationFn = async (data: CreateRouteType) => {
+export const createRouteMutationFn = async (data: any) => {
     return await API.post('/routes', data);
 };
 
@@ -108,4 +93,8 @@ export const getRoutesByPassengerQueryFn = async (userId: string) => {
 
 export const getRequestsByUserIdQueryFn = async (userId: string) => {
   return await API.get(`/routes/requests/user/${userId}`)
+}
+
+export const getBookingHistoryQueryFn = async () => {
+  return await API.get(`/routes/history/booking`)
 }

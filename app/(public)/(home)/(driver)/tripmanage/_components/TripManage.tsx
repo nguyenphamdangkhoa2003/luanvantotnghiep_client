@@ -8,9 +8,6 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Loader2, Route } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm } from 'react-hook-form'
-import * as z from 'zod'
 import RouteForm from './RouteForm'
 import RouteTable from './RouteTable'
 import PaginationControls from './PaginationControls'
@@ -26,12 +23,6 @@ interface Route {
   waypoints?: { name: string; _id: string }[]
 }
 
-const routeSchema = z.object({
-  routeName: z.string().min(1, 'Tên tuyến đường không được để trống'),
-  startPoint: z.string().min(1, 'Điểm bắt đầu không được để trống'),
-  endPoint: z.string().min(1, 'Điểm kết thúc không được để trống'),
-})
-
 const formatAddress = (name: string): string => {
   const parts = name.split(',').map((part) => part.trim())
   if (parts.length < 4) {
@@ -46,19 +37,9 @@ const formatAddress = (name: string): string => {
 const TripManage: React.FC = () => {
   const router = useRouter()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingRoute, setEditingRoute] = useState<Route | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
   const { user, isLoading: isAuthLoading } = useAuthContext()
-
-  const form = useForm<z.infer<typeof routeSchema>>({
-    resolver: zodResolver(routeSchema),
-    defaultValues: {
-      routeName: '',
-      startPoint: '',
-      endPoint: '',
-    },
-  })
 
   const {
     data: routes = [],
@@ -111,25 +92,8 @@ const TripManage: React.FC = () => {
     setCurrentPage(1)
   }
 
-  const openDialog = (route?: Route) => {
-    if (route) {
-      setEditingRoute(route)
-      form.reset({
-        routeName: route.routeName,
-        startPoint: route.startPoint,
-        endPoint: route.endPoint,
-      })
-    } else {
-      setEditingRoute(null)
-      form.reset()
-    }
+  const openDialog = () => {
     setIsDialogOpen(true)
-  }
-
-  const onSubmit = (values: z.infer<typeof routeSchema>) => {
-    toast.info('Chức năng này chưa được triển khai')
-    setIsDialogOpen(false)
-    form.reset()
   }
 
   const handleViewPassengers = (routeId: string) => {
@@ -168,8 +132,9 @@ const TripManage: React.FC = () => {
                 tuyến đường
               </p>
             </div>
-          </div>
+         mock
         </div>
+      </div>
       </div>
     )
   }
@@ -178,26 +143,22 @@ const TripManage: React.FC = () => {
     return (
       <div className="container mx-auto py-8 text-center">
         <div className="bg-red-50 border-l-4 border-red-400 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg
-                className="h-5 w-5 text-red-400"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">
-                <span className="font-medium">Lỗi!</span> Không thể tải dữ liệu
-                tuyến đường
-              </p>
-            </div>
+          <svg
+            className="h-5 w-5 text-red-400"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <div className="ml-3">
+            <p className="text-sm text-red-700">
+              <span className="font-medium">Lỗi!</span> Không thể tải dữ liệu
+              tuyến đường
+            </p>
           </div>
         </div>
       </div>
@@ -218,9 +179,6 @@ const TripManage: React.FC = () => {
             <RouteForm
               isOpen={isDialogOpen}
               setIsOpen={setIsDialogOpen}
-              editingRoute={editingRoute}
-              onSubmit={onSubmit}
-              form={form}
             />
           </div>
         </CardHeader>
@@ -232,7 +190,7 @@ const TripManage: React.FC = () => {
               ))}
             </div>
           ) : routes.length === 0 ? (
-            <EmptyState onOpenDialog={() => openDialog()} />
+            <EmptyState onOpenDialog={openDialog} />
           ) : (
             <>
               <RouteTable

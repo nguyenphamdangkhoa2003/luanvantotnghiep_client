@@ -46,7 +46,7 @@ const TripDetails = () => {
   const params = useParams()
   const router = useRouter()
   const tripId = params?.id as string
-  const { user } = useAuthContext() 
+  const { user } = useAuthContext()
   const userId = user?._id
 
   let passengers = 1
@@ -163,7 +163,9 @@ const TripDetails = () => {
   const requests = requestsData?.data || []
 
   const hasRequested = requests.some(
-    (request: any) => request.routeId._id === tripId
+    (request: any) =>
+      request.routeId._id === tripId &&
+      (request.status === 'accepted' || request.status === 'completed')
   )
 
   if (!tripId || isTripLoading || (userId && isRequestsLoading)) {
@@ -677,7 +679,7 @@ const TripDetails = () => {
                     }
                   })}
                   <span className="text-sm text-[var(--muted-foreground)]">
-                    ({driverRating})
+                    ({driverRating.toFixed(1)})
                   </span>
                 </div>
               </div>
@@ -817,7 +819,7 @@ const TripDetails = () => {
             <Button
               variant="link"
               className="text-yellow-800 p-0 h-auto"
-              onClick={() => router.push('/my-requests')} 
+              onClick={() => router.push('/my-requests')}
             >
               Xem trạng thái
             </Button>

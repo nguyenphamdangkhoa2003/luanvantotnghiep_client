@@ -465,7 +465,7 @@ export default function TripCard(trip: TripCardProps) {
                               id="route"
                               type="line"
                               paint={{
-                                'line-color': 'var(--primary)',
+                                'line-color': '#3b82f6',
                                 'line-width': 4,
                                 'line-opacity': 0.8,
                               }}
