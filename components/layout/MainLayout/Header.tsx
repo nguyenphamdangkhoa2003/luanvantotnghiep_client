@@ -193,6 +193,7 @@ const Header = () => {
         queryKey: ['completedRequests', user?._id],
       })
       queryClient.invalidateQueries({ queryKey: ['reviewStatus'] })
+      router.push('/messages')
     },
     onError: (error) => {
       toast.error('Cảnh báo', {

@@ -12,33 +12,22 @@ import {
   markMessageAsRead,
 } from '@/api/chat/chat'
 import { cancelBookingMutationFn } from '@/api/routes/route'
+import {
+  getTripConfirmationByRequestQueryFn,
+  updateTripConfirmationMutationFn,
+} from '@/api/confirmation/confirmation'
 import { debounce } from 'lodash'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Loader2, Check, SendHorizontal, MoreVertical } from 'lucide-react'
-import { format, isValid } from 'date-fns'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-
+import ChatHeader from './_components/ChatHeader'
+import ChatMessages from './_components//ChatMessages'
+import ChatInput from './_components//ChatInput'
+import ConfirmBookingDialog from './_components//ConfirmBookingDialog'
+import CancelBookingDialog from './_components//CancelBookingDialog'
+import { Card } from '@/components/ui/card'
+import { formatDate, isValid } from 'date-fns'
 interface Message {
   _id: string
   conversationId: string
@@ -57,13 +46,38 @@ interface FetchMessagesResponse {
   requestId: string
 }
 
-interface Props {
-  params: Promise<{ conversationId: string }>
+interface TripConfirmationData {
+  _id: string
+  tripRequestId: string
+  confirmedByDriver?: boolean
+  confirmedByPassenger?: boolean
+  notes?: string
+}
+
+interface TripConfirmation {
+  data: TripConfirmationData
 }
 
 interface CancelRequestType {
   requestId: string
 }
+
+interface UpdateTripConfirmationType {
+  confirmedByDriver?: boolean
+  confirmedByPassenger?: boolean
+  notes?: string
+}
+
+interface Props {
+  params: Promise<{ conversationId: string }>
+}
+
+// Define form schema
+const formSchema = z.object({
+  confirmedByDriver: z.boolean().optional(),
+  confirmedByPassenger: z.boolean().optional(),
+  notes: z.string().optional(),
+})
 
 export default function ChatPage({ params }: Props) {
   const { conversationId } = use(params)
@@ -84,14 +98,18 @@ export default function ChatPage({ params }: Props) {
   } = useAuthContext()
   const queryClient = useQueryClient()
 
+  // Initialize form
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      confirmedByDriver: false,
+      confirmedByPassenger: false,
+      notes: '',
+    },
+  })
+
   // Set userId from auth context and prevent redirect loop
   useEffect(() => {
-    console.log('ChatPage AuthContext state:', {
-      user,
-      isAuthLoading,
-      isFetching,
-      isSuccess,
-    })
     if (isAuthLoading || isFetching || !isSuccess) {
       return
     }
@@ -114,8 +132,8 @@ export default function ChatPage({ params }: Props) {
   // Fetch messages using TanStack Query
   const {
     data: fetchedMessagesResponse,
-    isLoading,
-    isError,
+    isLoading: isMessagesLoading,
+    isError: isMessagesError,
   } = useQuery<FetchMessagesResponse>({
     queryKey: ['messages', conversationId],
     queryFn: () => fetchMessages(conversationId),
@@ -125,30 +143,51 @@ export default function ChatPage({ params }: Props) {
     retry: 1,
   })
 
+  // Fetch trip confirmation data
+  const {
+    data: tripConfirmation,
+    isLoading: isConfirmationLoading,
+    isError: isConfirmationError,
+  } = useQuery<TripConfirmation | null>({
+    queryKey: ['tripConfirmation', fetchedMessagesResponse?.requestId],
+    queryFn: () =>
+      fetchedMessagesResponse?.requestId
+        ? getTripConfirmationByRequestQueryFn(
+            fetchedMessagesResponse.requestId
+          ).then((response) => ({ data: response.data }))
+        : Promise.resolve(null),
+    enabled: !!fetchedMessagesResponse?.requestId && !!userId,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  })
+
+  // Sync form with tripConfirmation data
+  useEffect(() => {
+    if (tripConfirmation?.data) {
+      form.reset({
+        confirmedByDriver: tripConfirmation.data.confirmedByDriver || false,
+        confirmedByPassenger:
+          tripConfirmation.data.confirmedByPassenger || false,
+        notes: tripConfirmation.data.notes || '',
+      })
+    }
+  }, [tripConfirmation, form])
+
   // Handle fetched messages
   useEffect(() => {
     if (!fetchedMessagesResponse || !userId || !conversationId) {
-      console.warn('Skipping message handling: missing data', {
-        fetchedMessagesResponse: !!fetchedMessagesResponse,
-        userId,
-        conversationId,
-      })
       return
     }
-    console.log('Fetched messages:', fetchedMessagesResponse.messages)
-    console.log('Request ID:', fetchedMessagesResponse.requestId)
     setMessages(fetchedMessagesResponse.messages)
     const unreadMessages = fetchedMessagesResponse.messages
       .filter((msg) => msg.senderId !== userId && !msg.isRead)
       .map((msg) => msg._id)
-    console.log('Unread messages to mark as read:', unreadMessages)
     if (unreadMessages.length > 0) {
       markAsReadMutation.mutate({
         conversationId,
         messageIds: unreadMessages,
       })
-    } else {
-      console.log('No unread messages to mark')
     }
   }, [fetchedMessagesResponse, conversationId, userId])
 
@@ -167,15 +206,12 @@ export default function ChatPage({ params }: Props) {
       return sendMessage(conversationId, content)
     },
     onSuccess: () => {
-      console.log('Message sent successfully')
       setNewMessage('')
       queryClient.invalidateQueries({
         queryKey: ['messages', conversationId],
       })
     },
-    onError: (error: any) => {
-      // Handle error if needed
-    },
+    onError: (error: any) => {},
   })
 
   const typingMutation = useMutation({
@@ -193,9 +229,7 @@ export default function ChatPage({ params }: Props) {
       }
       return sendTypingEvent(conversationId, isTyping)
     },
-    onError: (error: any) => {
-      // Handle error if needed
-    },
+    onError: (error: any) => {},
   })
 
   const markAsReadMutation = useMutation({
@@ -211,7 +245,6 @@ export default function ChatPage({ params }: Props) {
           'Missing conversationId or messageIds in markAsReadMutation'
         )
       }
-      console.log('Marking as read:', { conversationId, messageIds })
       if (Array.isArray(messageIds)) {
         return Promise.all(
           messageIds.map((messageId) =>
@@ -222,7 +255,6 @@ export default function ChatPage({ params }: Props) {
       return markMessageAsRead(conversationId, messageIds)
     },
     onSuccess: () => {
-      console.log('Successfully marked message(s) as read')
       queryClient.invalidateQueries({
         queryKey: ['messages', conversationId],
       })
@@ -233,7 +265,6 @@ export default function ChatPage({ params }: Props) {
         typeof window !== 'undefined' &&
         window.location.pathname !== '/sign-in'
       ) {
-        console.log('401 error detected, redirecting to /sign-in')
         router.replace('/sign-in')
       }
     },
@@ -242,14 +273,32 @@ export default function ChatPage({ params }: Props) {
   const cancelBookingMutation = useMutation({
     mutationFn: (data: CancelRequestType) => cancelBookingMutationFn(data),
     onSuccess: () => {
-      console.log('Booking cancelled successfully')
-      toast.success('Booking cancelled successfully')
+      toast.success('Hủy đặt xe thành công')
       router.replace('/')
     },
     onError: (error: any) => {
-      console.error('Error cancelling booking:', error)
+      toast.error(error.message || 'Hủy đặt xe thất bại. Vui lòng thử lại.')
+    },
+  })
+
+  const confirmBookingMutation = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string
+      data: UpdateTripConfirmationType
+    }) => updateTripConfirmationMutationFn(id, data),
+    onSuccess: () => {
+      toast.success('Đặt xe thành công')
+      queryClient.invalidateQueries({
+        queryKey: ['tripConfirmation', fetchedMessagesResponse?.requestId],
+      })
+      setShowConfirmDialog(false)
+    },
+    onError: (error: any) => {
       toast.error(
-        error.message || 'Failed to cancel booking. Please try again.'
+        error.message || 'Xác nhận đặt xe thất bại. Vui lòng thử lại.'
       )
     },
   })
@@ -257,7 +306,6 @@ export default function ChatPage({ params }: Props) {
   // Memoize Pusher event handlers
   const handleNewMessage = useCallback(
     (message: Message) => {
-      console.log('New message received via Pusher:', message)
       setMessages((prev) => {
         const messageIds = new Set(prev.map((msg) => msg._id))
         if (messageIds.has(message._id)) return prev
@@ -278,7 +326,6 @@ export default function ChatPage({ params }: Props) {
         conversationId &&
         userId
       ) {
-        console.log('Marking new message as read:', message._id)
         markAsReadMutation.mutate({
           conversationId,
           messageIds: message._id,
@@ -290,7 +337,6 @@ export default function ChatPage({ params }: Props) {
 
   const handleTyping = useCallback(
     (typing: { userId: string; isTyping: boolean }) => {
-      console.log('Typing event received:', typing)
       if (typing.userId !== userId) {
         setOtherUserTyping(typing.isTyping)
       }
@@ -300,7 +346,6 @@ export default function ChatPage({ params }: Props) {
 
   const handleMessageRead = useCallback(
     (event: { messageId: string }) => {
-      console.log('Message read event received:', event)
       setMessages((prev) =>
         prev.map((msg) =>
           msg._id === event.messageId ? { ...msg, isRead: true } : msg
@@ -323,7 +368,6 @@ export default function ChatPage({ params }: Props) {
   )
 
   const handleConversationClosed = useCallback(() => {
-    console.log('Conversation closed event received')
     router.replace('/')
   }, [router])
 
@@ -354,7 +398,6 @@ export default function ChatPage({ params }: Props) {
   const debouncedTypingEvent = useCallback(
     debounce((typing: boolean) => {
       if (typing !== isTyping && conversationId && userId) {
-        console.log('Sending typing event:', typing)
         setIsTyping(typing)
         typingMutation.mutate({ conversationId, isTyping: typing })
       }
@@ -366,14 +409,9 @@ export default function ChatPage({ params }: Props) {
   const handleSendMessage = (e?: React.FormEvent) => {
     e?.preventDefault()
     if (!newMessage.trim() || !conversationId || !userId) {
-      console.warn('Cannot send message: missing data', {
-        newMessage: newMessage.trim(),
-        conversationId,
-        userId,
-      })
+      toast.error('Không thể gửi tin nhắn: dữ liệu không đầy đủ.')
       return
     }
-    console.log('Sending message:', newMessage)
     sendMessageMutation.mutate({ conversationId, content: newMessage })
     setIsTyping(false)
     debouncedTypingEvent(false)
@@ -382,16 +420,9 @@ export default function ChatPage({ params }: Props) {
   // Handle cancel booking
   const handleCancelBooking = () => {
     if (!fetchedMessagesResponse?.requestId) {
-      console.warn('Cannot cancel booking: missing requestId', {
-        requestId: fetchedMessagesResponse?.requestId,
-      })
-      toast.error('Cannot cancel booking: incomplete data.')
+      toast.error('Không thể hủy đặt xe: dữ liệu không đầy đủ.')
       return
     }
-    console.log(
-      'Cancelling booking with requestId:',
-      fetchedMessagesResponse.requestId
-    )
     cancelBookingMutation.mutate({
       requestId: fetchedMessagesResponse.requestId,
     })
@@ -399,9 +430,32 @@ export default function ChatPage({ params }: Props) {
 
   // Handle confirm booking
   const handleConfirmBooking = () => {
-    // Implement your confirm booking logic here
-    toast.success('Booking confirmed successfully')
-    console.log('Booking confirmed')
+    if (!fetchedMessagesResponse?.requestId || !tripConfirmation?.data?._id) {
+      toast.error('Không thể xác nhận đặt xe: dữ liệu không đầy đủ.')
+      return
+    }
+    if (
+      (user?.role === 'driver' && tripConfirmation?.data?.confirmedByDriver) ||
+      (user?.role === 'customer' &&
+        tripConfirmation?.data?.confirmedByPassenger)
+    ) {
+      toast.error('Bạn đã xác nhận đặt xe này.')
+      return
+    }
+    const formValues = form.getValues()
+    const updateData: UpdateTripConfirmationType = {
+      ...(user?.role === 'driver'
+        ? { confirmedByDriver: formValues.confirmedByDriver }
+        : {}),
+      ...(user?.role === 'customer'
+        ? { confirmedByPassenger: formValues.confirmedByPassenger }
+        : {}),
+      notes: formValues.notes?.trim() || undefined,
+    }
+    confirmBookingMutation.mutate({
+      id: tripConfirmation.data._id,
+      data: updateData,
+    })
   }
 
   // Send typing event
@@ -409,30 +463,19 @@ export default function ChatPage({ params }: Props) {
     debouncedTypingEvent(typing)
   }
 
-  // Handle key events
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
-    }
-  }
-
   // Validate and format timestamp
   const formatTimestamp = (timestamp?: string) => {
     if (!timestamp) {
-      console.warn('Timestamp is undefined')
-      return 'Unknown time'
+      return 'Thời gian không xác định'
     }
     try {
       const date = new Date(timestamp)
       if (!isValid(date)) {
-        console.warn(`Invalid timestamp: ${timestamp}`)
-        return 'Unknown time'
+        return 'Thời gian không xác định'
       }
-      return format(date, 'dd/MM/yy HH:mm')
+      return formatDate(date, 'dd/MM/yy HH:mm')
     } catch (error) {
-      console.warn(`Error formatting timestamp: ${timestamp}`, error)
-      return 'Unknown time'
+      return 'Thời gian không xác định'
     }
   }
 
@@ -440,7 +483,7 @@ export default function ChatPage({ params }: Props) {
   if (isAuthLoading || isFetching || !isSuccess) {
     return (
       <div className="container mx-auto p-4">
-        <p>Checking authentication...</p>
+        <p>Đang kiểm tra xác thực...</p>
       </div>
     )
   }
@@ -448,255 +491,64 @@ export default function ChatPage({ params }: Props) {
   if (!userId || !conversationId) {
     return (
       <div className="container mx-auto p-4">
-        <p>Loading or redirecting...</p>
+        <p>Đang tải hoặc chuyển hướng...</p>
       </div>
     )
   }
 
+  // Check if user is allowed to confirm
+  const canConfirm =
+    user?.role === 'driver'
+      ? !tripConfirmation?.data?.confirmedByDriver
+      : user?.role === 'customer'
+      ? !tripConfirmation?.data?.confirmedByPassenger
+      : false
+
   return (
     <div className="flex min-h-screen bg-gray-50 items-center justify-center">
       <Card className="flex flex-col w-full max-w-3xl mx-auto my-8 border shadow-sm min-h-0 overflow-hidden">
-        <CardHeader className="border-b p-4 bg-white">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Avatar>
-                <AvatarImage src={user?.avatar} />
-                <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
-              </Avatar>
-              <div>
-                <h2 className="font-semibold">Chat</h2>
-                <p className="text-sm text-gray-500">
-                  {isConnected ? 'Online' : 'Connecting...'}
-                </p>
-              </div>
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setShowConfirmDialog(true)}>
-                  Confirm Booking
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setShowCancelDialog(true)}
-                  className="text-red-600 focus:text-red-600"
-                >
-                  Cancel Booking
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </CardHeader>
-
-        {/* Confirm Booking Dialog */}
-        <AlertDialog
+        <ChatHeader
+          user={user||null}
+          isConnected={isConnected}
+          onConfirmBooking={() => setShowConfirmDialog(true)}
+          onCancelBooking={() => setShowCancelDialog(true)}
+          hasTripConfirmation={!!tripConfirmation?.data?._id}
+        />
+        <ChatMessages
+          messages={messages}
+          userId={userId}
+          isMessagesLoading={isMessagesLoading}
+          isMessagesError={isMessagesError}
+          otherUserTyping={otherUserTyping}
+          scrollAreaRef={scrollAreaRef}
+          formatTimestamp={formatTimestamp}
+        />
+        <ChatInput
+          newMessage={newMessage}
+          setNewMessage={setNewMessage}
+          isTyping={isTyping}
+          handleTypingEvent={handleTypingEvent}
+          handleSendMessage={handleSendMessage}
+          sendMessageMutation={sendMessageMutation}
+        />
+        <ConfirmBookingDialog
           open={showConfirmDialog}
           onOpenChange={setShowConfirmDialog}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirm Booking</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to confirm this booking?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleConfirmBooking}>
-                Confirm
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Cancel Booking Dialog */}
-        <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Cancel Booking</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to cancel this booking? This action cannot
-                be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Back</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleCancelBooking}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                {cancelBookingMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  'Cancel Booking'
-                )}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        <CardContent className="flex-1 p-0">
-          {isLoading ? (
-            <div className="p-4 space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton
-                  key={i}
-                  className={`h-16 w-3/4 rounded-lg ${
-                    i % 2 === 0 ? 'ml-auto' : 'mr-auto'
-                  }`}
-                />
-              ))}
-            </div>
-          ) : isError ? (
-            <div className="p-4 text-red-500">Error loading messages</div>
-          ) : messages.length === 0 ? (
-            <div className="p-4 text-center text-gray-500">
-              No messages yet. Start the conversation!
-            </div>
-          ) : (
-            <ScrollArea
-              className="h-[calc(100vh-200px)] p-4"
-              ref={scrollAreaRef}
-              aria-label="Chat messages"
-            >
-              <div className="space-y-4">
-                {messages.map((msg: any) => (
-                  <div
-                    key={msg._id}
-                    className={`flex ${
-                      msg.senderId === userId ? 'justify-end' : 'justify-start'
-                    }`}
-                  >
-                    <div
-                      className={`flex max-w-[85%] lg:max-w-[75%] ${
-                        msg.senderId === userId
-                          ? 'flex-row-reverse'
-                          : 'flex-row'
-                      } items-end gap-2`}
-                    >
-                      {msg.senderId !== userId && (
-                        <Avatar className="h-8 w-8 flex-shrink-0">
-                          <AvatarImage src={msg.sender?.avatar} />
-                          <AvatarFallback className="bg-gray-200 text-gray-700">
-                            {msg.sender?.name?.charAt(0) || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-
-                      <div className="flex flex-col gap-1">
-                        <div
-                          className={`rounded-2xl px-4 py-3 ${
-                            msg.senderId === userId
-                              ? 'bg-primary text-primary-foreground rounded-tr-none'
-                              : 'bg-white border rounded-tl-none shadow-sm'
-                          }`}
-                        >
-                          <p className="text-sm">{msg.content}</p>
-                        </div>
-                        <div
-                          className={`flex items-center gap-1.5 ${
-                            msg.senderId === userId
-                              ? 'justify-end'
-                              : 'justify-start'
-                          }`}
-                        >
-                          <span className="text-xs text-gray-500">
-                            {formatTimestamp(msg.createdAt)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {otherUserTyping && (
-                  <div className="flex justify-start">
-                    <div className="flex max-w-[85%] items-start gap-2">
-                      <Avatar className="h-8 w-8 flex-shrink-0">
-                        <AvatarFallback className="bg-gray-200 text-gray-700">
-                          U
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col gap-1">
-                        <div className="bg-white border rounded-2xl rounded-tl-none px-4 py-3 shadow-sm w-fit">
-                          <div className="flex space-x-1.5">
-                            <div
-                              className="h-2 w-2 rounded-full bg-gray-400 animate-bounce"
-                              style={{ animationDelay: '0ms' }}
-                            />
-                            <div
-                              className="h-2 w-2 rounded-full bg-gray-400 animate-bounce"
-                              style={{ animationDelay: '150ms' }}
-                            />
-                            <div
-                              className="h-2 w-2 rounded-full bg-gray-400 animate-bounce"
-                              style={{ animationDelay: '300ms' }}
-                            />
-                          </div>
-                        </div>
-                        <span className="text-xs text-gray-500">typing...</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-
-        <CardFooter className="border-t p-4 bg-white">
-          <form
-            onSubmit={handleSendMessage}
-            className="flex w-full items-end gap-2 max-w-full"
-          >
-            <div className="flex-1 relative min-w-0">
-              <Input
-                type="text"
-                value={newMessage}
-                onChange={(e) => {
-                  setNewMessage(e.target.value)
-                  handleTypingEvent(!!e.target.value)
-                }}
-                onBlur={() => handleTypingEvent(false)}
-                onKeyDown={handleKeyDown}
-                className="pr-10 min-h-[40px] rounded-full w-full"
-                placeholder="Type a message..."
-                disabled={sendMessageMutation.isPending}
-                aria-label="Type a message"
-              />
-              {isTyping && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex space-x-1">
-                  <div
-                    className="h-1.5 w-1.5 rounded-full bg-gray-400 animate-bounce"
-                    style={{ animationDelay: '0ms' }}
-                  />
-                  <div
-                    className="h-1.5 w-1.5 rounded-full bg-gray-400 animate-bounce"
-                    style={{ animationDelay: '150ms' }}
-                  />
-                  <div
-                    className="h-1.5 w-1.5 rounded-full bg-gray-400 animate-bounce"
-                    style={{ animationDelay: '300ms' }}
-                  />
-                </div>
-              )}
-            </div>
-            <Button
-              type="submit"
-              size="icon"
-              className="rounded-full h-10 w-10 flex-shrink-0"
-              disabled={!newMessage.trim() || sendMessageMutation.isPending}
-            >
-              {sendMessageMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <SendHorizontal className="h-4 w-4" />
-              )}
-            </Button>
-          </form>
-        </CardFooter>
+          form={form}
+          isConfirmationLoading={isConfirmationLoading}
+          isConfirmationError={isConfirmationError}
+          tripConfirmation={tripConfirmation|| null}
+          user={user|| null}
+          canConfirm={canConfirm}
+          confirmBookingMutation={confirmBookingMutation}
+          handleConfirmBooking={handleConfirmBooking}
+        />
+        <CancelBookingDialog
+          open={showCancelDialog}
+          onOpenChange={setShowCancelDialog}
+          cancelBookingMutation={cancelBookingMutation}
+          handleCancelBooking={handleCancelBooking}
+        />
       </Card>
     </div>
   )

@@ -311,7 +311,7 @@ export default function SignUp() {
           </Form>
 
           <p className="text-sm text-center text-muted-foreground mt-4">
-            Đã [Your name]Đã có tài khoản?{' '}
+            Đã có tài khoản?{' '}
             <Link
               href="/sign-in"
               className="font-medium text-primary hover:text-primary/80 transition-colors"

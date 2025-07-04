@@ -98,3 +98,11 @@ export const getRequestsByUserIdQueryFn = async (userId: string) => {
 export const getBookingHistoryQueryFn = async () => {
   return await API.get(`/routes/history/booking`)
 }
+
+export const deleteRouteMutationFn = async (routeId: string) => {
+  return await API.delete(`/routes/${routeId}`)
+}
+
+export const updateRouteMutationFn = async (routeId: string, data: any ) => {
+  return await API.patch(`/routes/${routeId}`, data)
+}

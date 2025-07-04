@@ -14,13 +14,11 @@ import { getAllReviewsQueryFn } from '@/api/reviews/review'
 function ReviewManagement() {
   const [customerReviews, setCustomerReviews] = useState<Review[]>([])
   const [driverReviews, setDriverReviews] = useState<Review[]>([])
-  const [refetchTrigger, setRefetchTrigger] = useState(0)
 
   const { mutate, isPending, isError, error } = useMutation({
     mutationFn: getAllReviewsQueryFn,
     onSuccess: (response) => {
       const reviewData = response.data ?? []
-      console.log('API Response:', reviewData)
 
       // Filter and map customer review data
       const customerReviewData: Review[] = reviewData
@@ -77,12 +75,7 @@ function ReviewManagement() {
   // Fetch data when component mounts or refetchTrigger changes
   useEffect(() => {
     mutate()
-  }, [refetchTrigger, mutate])
-
-  // Function to refresh data
-  const refresh = () => {
-    setRefetchTrigger((prev) => prev + 1)
-  }
+  }, [ mutate])
 
   // Display skeleton while loading
   if (isPending) {

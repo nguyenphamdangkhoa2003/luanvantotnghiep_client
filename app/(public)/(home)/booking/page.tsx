@@ -262,7 +262,7 @@ export default function BookingPage() {
                 </label>
                 <Slider
                   min={0}
-                  max={1000000}
+                  max={5000000}
                   step={10000}
                   value={priceRange}
                   onValueChange={setPriceRange}

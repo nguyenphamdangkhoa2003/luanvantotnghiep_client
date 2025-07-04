@@ -22,7 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Pencil, Route, Users } from 'lucide-react'
+import { Pencil, Route, Trash, Users } from 'lucide-react'
 
 interface Route {
   id: string
@@ -37,12 +37,14 @@ interface RouteTableProps {
   routes: Route[]
   onEdit: (route: Route) => void
   onViewPassengers: (routeId: string) => void
+  onDelete: (routeId: string) => void
 }
 
 const RouteTable: React.FC<RouteTableProps> = ({
   routes,
   onEdit,
   onViewPassengers,
+  onDelete,
 }) => {
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -185,7 +187,6 @@ const RouteTable: React.FC<RouteTableProps> = ({
                             variant="outline"
                             size="sm"
                             onClick={() => onEdit(route)}
-                            disabled={route.status === 'pending'}
                             className="h-8 w-8 p-0"
                           >
                             <Pencil className="h-4 w-4" />
@@ -193,6 +194,25 @@ const RouteTable: React.FC<RouteTableProps> = ({
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>Chỉnh sửa tuyến đường</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  {route.status === 'active' && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => onDelete(route.id)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Xóa</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>

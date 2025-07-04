@@ -2,17 +2,31 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthContext } from '@/context/auth-provider'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Loader2, Route } from 'lucide-react'
+import { Loader2, Route, MapPin } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import RouteForm from './RouteForm'
 import RouteTable from './RouteTable'
 import PaginationControls from './PaginationControls'
 import EmptyState from './EmptyState'
-import { getRoutesByDriverQueryFn } from '@/api/routes/route'
+import UpdateRouteForm from '@/components/form/UpdateRouteForm'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import {
+  getRoutesByDriverQueryFn,
+  deleteRouteMutationFn,
+} from '@/api/routes/route'
+import { format } from 'date-fns'
 
 interface Route {
   id: string
@@ -20,7 +34,21 @@ interface Route {
   startPoint: string
   endPoint: string
   status: 'active' | 'pending' | 'cancelled'
-  waypoints?: { name: string; _id: string }[]
+  waypoints?: {
+    name: string
+    _id: string
+    coordinates?: [number, number]
+    distance?: number
+  }[]
+  startCoords?: { lng: number; lat: number }
+  endCoords?: { lng: number; lat: number }
+  path?: { type: string; coordinates: [number, number][] }
+  distance?: number
+  duration?: number
+  startTime?: string
+  endTime?: string
+  seatsAvailable?: number
+  price?: number
 }
 
 const formatAddress = (name: string): string => {
@@ -36,7 +64,12 @@ const formatAddress = (name: string): string => {
 
 const TripManage: React.FC = () => {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [selectedRoute, setSelectedRoute] = useState<Route | null>(null)
+  const [routeToDelete, setRouteToDelete] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
   const { user, isLoading: isAuthLoading } = useAuthContext()
@@ -52,28 +85,85 @@ const TripManage: React.FC = () => {
     enabled: !!user?._id,
     select: (response) => {
       if (!response?.data) return []
-      return response.data
-        .map((route: any) => ({
-          id: route._id,
-          routeName: route.name || '',
-          startPoint:
-            route.waypoints &&
+      return response.data.map((route: any) => ({
+        id: route._id,
+        routeName: route.name || '',
+        startPoint: route.startPoint?.name
+          ? formatAddress(route.startPoint.name)
+          : route.waypoints &&
             Array.isArray(route.waypoints) &&
             route.waypoints[0]?.name
-              ? formatAddress(route.waypoints[0].name)
-              : 'Unknown',
-          endPoint:
-            route.waypoints &&
+          ? formatAddress(route.waypoints[0].name)
+          : 'Unknown',
+        endPoint: route.endPoint?.name
+          ? formatAddress(route.endPoint.name)
+          : route.waypoints &&
             Array.isArray(route.waypoints) &&
             route.waypoints.length > 1
-              ? formatAddress(route.waypoints[route.waypoints.length - 1].name)
-              : 'Unknown',
-          status: route.status,
-          waypoints: route.waypoints,
-        }))
-        .filter((route: Route) => route.status !== 'cancelled')
+          ? formatAddress(route.waypoints[route.waypoints.length - 1].name)
+          : 'Unknown',
+        status: route.status,
+        waypoints: route.waypoints,
+        startCoords: route.startPoint?.coordinates
+          ? {
+              lng: route.startPoint.coordinates[0],
+              lat: route.startPoint.coordinates[1],
+            }
+          : route.waypoints &&
+            Array.isArray(route.waypoints) &&
+            route.waypoints[0]?.coordinates
+          ? {
+              lng: route.waypoints[0].coordinates[0],
+              lat: route.waypoints[0].coordinates[1],
+            }
+          : undefined,
+        endCoords: route.endPoint?.coordinates
+          ? {
+              lng: route.endPoint.coordinates[0],
+              lat: route.endPoint.coordinates[1],
+            }
+          : route.waypoints &&
+            Array.isArray(route.waypoints) &&
+            route.waypoints.length > 1
+          ? {
+              lng: route.waypoints[route.waypoints.length - 1].coordinates[0],
+              lat: route.waypoints[route.waypoints.length - 1].coordinates[1],
+            }
+          : undefined,
+        path: route.path,
+        distance: route.distance,
+        duration: route.duration,
+        startTime: route.startTime,
+        endTime: route.endTime,
+        seatsAvailable: route.seatsAvailable,
+        price: route.price,
+      }))
     },
   })
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteRouteMutationFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['routes', user?._id] })
+      toast.success('Xóa tuyến đường thành công')
+      setIsDeleteDialogOpen(false)
+      setRouteToDelete(null)
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Không thể xóa tuyến đường')
+    },
+  })
+
+  const handleDelete = (routeId: string) => {
+    setRouteToDelete(routeId)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = () => {
+    if (routeToDelete) {
+      deleteMutation.mutate(routeToDelete)
+    }
+  }
 
   const totalItems = routes.length
   const totalPages = Math.ceil(totalItems / itemsPerPage)
@@ -94,6 +184,11 @@ const TripManage: React.FC = () => {
 
   const openDialog = () => {
     setIsDialogOpen(true)
+  }
+
+  const handleEdit = (route: Route) => {
+    setSelectedRoute(route)
+    setIsEditDialogOpen(true)
   }
 
   const handleViewPassengers = (routeId: string) => {
@@ -132,9 +227,8 @@ const TripManage: React.FC = () => {
                 tuyến đường
               </p>
             </div>
-         mock
+          </div>
         </div>
-      </div>
       </div>
     )
   }
@@ -176,10 +270,7 @@ const TripManage: React.FC = () => {
                 Quản lý tuyến đường
               </CardTitle>
             </div>
-            <RouteForm
-              isOpen={isDialogOpen}
-              setIsOpen={setIsDialogOpen}
-            />
+            <RouteForm isOpen={isDialogOpen} setIsOpen={setIsDialogOpen} />
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -195,8 +286,9 @@ const TripManage: React.FC = () => {
             <>
               <RouteTable
                 routes={paginatedRoutes}
-                onEdit={openDialog}
+                onEdit={handleEdit}
                 onViewPassengers={handleViewPassengers}
+                onDelete={handleDelete}
               />
               {totalPages > 1 && (
                 <PaginationControls
@@ -211,6 +303,85 @@ const TripManage: React.FC = () => {
           )}
         </CardContent>
       </Card>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[1200px] p-0 max-h-[95vh] overflow-y-auto">
+          <DialogHeader className="px-6 pt-6 pb-4 sticky top-0 bg-[var(--popover)] z-10">
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              Chỉnh sửa tuyến đường
+            </DialogTitle>
+          </DialogHeader>
+          <div className="px-6 pb-6">
+            {selectedRoute && (
+              <UpdateRouteForm
+                route={{
+                  id: selectedRoute.id,
+                  name: selectedRoute.routeName,
+                  startAddress: selectedRoute.startPoint,
+                  startCoords: selectedRoute.startCoords || { lng: 0, lat: 0 },
+                  endAddress: selectedRoute.endPoint,
+                  endCoords: selectedRoute.endCoords || { lng: 0, lat: 0 },
+                  waypoints:
+                    selectedRoute.waypoints &&
+                    selectedRoute.waypoints.length > 2
+                      ? selectedRoute.waypoints.slice(1, -1).map((wp) => ({
+                          name: wp.name,
+                          coordinates: wp.coordinates
+                            ? { lng: wp.coordinates[0], lat: wp.coordinates[1] }
+                            : null,
+                          distance: wp.distance || 0,
+                        }))
+                      : [],
+                  path: selectedRoute.path || {
+                    type: 'LineString',
+                    coordinates: [],
+                  },
+                  distance: selectedRoute.distance || 0,
+                  duration: selectedRoute.duration || 0,
+                  startTime: selectedRoute.startTime,
+                  endTime: selectedRoute.endTime,
+                  seatsAvailable: selectedRoute.seatsAvailable || 1,
+                  price: selectedRoute.price || 1000,
+                }}
+                setIsOpen={setIsEditDialogOpen}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa tuyến đường</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn xóa tuyến đường này? Hành động này không thể
+              hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang xóa...
+                </>
+              ) : (
+                'Xóa'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

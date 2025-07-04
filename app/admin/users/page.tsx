@@ -20,7 +20,10 @@ function UsersPage() {
     queryFn: getUsersQueryFn,
   })
 
+
+
   const users = apiResponse?.data.data || []
+  
   if (isPending) {
     return (
       <div className="p-3">

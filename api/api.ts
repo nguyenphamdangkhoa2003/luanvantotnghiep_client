@@ -47,7 +47,6 @@ API.interceptors.response.use(
           isRefreshing = false
           return API(config)
         } catch (refreshError: any) {
-          console.error('Lỗi khi làm mới token:', refreshError)
           isRefreshing = false
           onRefreshed()
           if (refreshError.response?.status === 401) {

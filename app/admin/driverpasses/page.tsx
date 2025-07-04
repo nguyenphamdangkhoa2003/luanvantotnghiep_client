@@ -17,7 +17,7 @@ function DriverPassesPage() {
   const { mutate, isPending, isError, error } = useMutation({
     mutationFn: getAllMembershipsQueryFn,
     onSuccess: (response) => {
-      const memberships = response.data // Assuming API returns { data: [...] }
+      const memberships = response.data
 
       // Transform API data to match DriverPassType
       const transformedData: DriverPassType[] = memberships.map(
