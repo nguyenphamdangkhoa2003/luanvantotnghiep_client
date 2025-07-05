@@ -15,9 +15,9 @@ import {
   DialogClose,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import Map, { Source, Layer, Marker, Popup } from 'react-map-gl/mapbox'
+import Map, { Source, Layer, Marker } from 'react-map-gl/mapbox'
 import 'mapbox-gl/dist/mapbox-gl.css'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 interface TripCardProps {
   _id: string
@@ -87,6 +87,14 @@ const formatAddress = (name: string): string => {
   return name.split(',').slice(0, 2).join(',').trim()
 }
 
+const formatPrice = (price: number): string => {
+  if (!price || price <= 0) return 'N/A'
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+  }).format(price)
+}
+
 const getInitials = (name: string): string => {
   return name
     .split(' ')
@@ -133,6 +141,7 @@ export default function TripCard(trip: TripCardProps) {
   const driverInitials = getInitials(driverName)
   const driverRating = trip.userId.averageRating || 0
   const isFull = trip.seatsAvailable === 0
+  const formattedPrice = formatPrice(trip.price) // Thêm định dạng giá tiền
 
   // Validate data
   if (!trip.waypoints || trip.waypoints.length === 0) {
@@ -230,7 +239,10 @@ export default function TripCard(trip: TripCardProps) {
         backgroundColor: isFull ? 'var(--muted)' : 'var(--card)',
       }}
     >
-      <CardContent className="px-4" style={{ color: 'var(--cardForeground)' }}>
+      <CardContent
+        className="px-4 py-4"
+        style={{ color: 'var(--cardForeground)' }}
+      >
         {/* Main content */}
         <div className="flex flex-row sm:flex-row gap-4">
           {/* Left Section - Pickup and Driver */}
@@ -328,25 +340,34 @@ export default function TripCard(trip: TripCardProps) {
 
         {/* Bottom Action Buttons */}
         <div className="flex justify-between items-center">
-          <span
-            className={`px-3 py-1 rounded-full text-xs font-medium ${
-              isFull ? '' : trip.seatsAvailable > 2 ? '' : ''
-            }`}
-            style={{
-              backgroundColor: isFull
-                ? 'var(--destructive)'
-                : trip.seatsAvailable > 2
-                ? 'var(--accent)'
-                : 'var(--accent)',
-              color: isFull
-                ? 'var(--destructiveForeground)'
-                : trip.seatsAvailable > 2
-                ? 'var(--accentForeground)'
-                : 'var(--accentForeground)',
-            }}
-          >
-            {isFull ? 'Hết chỗ' : `Còn ${trip.seatsAvailable} chỗ`}
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className={`px-3 py-1 rounded-full text-xs font-medium`}
+              style={{
+                backgroundColor: isFull
+                  ? 'var(--destructive)'
+                  : trip.seatsAvailable > 2
+                  ? 'var(--accent)'
+                  : 'var(--accent)',
+                color: isFull
+                  ? 'var(--destructiveForeground)'
+                  : trip.seatsAvailable > 2
+                  ? 'var(--accentForeground)'
+                  : 'var(--accentForeground)',
+              }}
+            >
+              {isFull ? 'Hết chỗ' : `Còn ${trip.seatsAvailable} chỗ`}
+            </span>
+            <span
+              className="px-3 py-1 rounded-full text-xs font-medium"
+              style={{
+                backgroundColor: 'var(--primary)',
+                color: 'var(--primaryForeground)',
+              }}
+            >
+              {formattedPrice} / ghế
+            </span>
+          </div>
 
           <div className="flex gap-2">
             <Dialog>
@@ -651,6 +672,14 @@ export default function TripCard(trip: TripCardProps) {
                               {trip.seatsAvailable}
                             </span>
                           </div>
+                          <div className="flex items-center justify-between">
+                            <span style={{ color: 'var(--mutedForeground)' }}>
+                              Giá mỗi ghế
+                            </span>
+                            <span style={{ color: 'var(--foreground)' }}>
+                              {formattedPrice}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Route Steps */}
@@ -677,7 +706,7 @@ export default function TripCard(trip: TripCardProps) {
                                     }}
                                   ></div>
                                   <div className="text-sm">
-                                    <p style={{ color: 'var(.)-foreground' }}>
+                                    <p style={{ color: 'var(--foreground)' }}>
                                       {step.maneuver.instruction}
                                     </p>
                                     {step.distance > 1 && (

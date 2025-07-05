@@ -57,11 +57,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         url: '/admin/reviews',
         icon: Star, 
       },
-      {
-        title: 'Settings',
-        url: '/admin/settings',
-        icon: Settings,
-      },
+      // {
+      //   title: 'Settings',
+      //   url: '/admin/settings',
+      //   icon: Settings,
+      // },
     ],
   }
 
@@ -77,7 +77,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     >
       <SidebarHeader className="px-4 py-4">
         <SidebarMenu>
-          <Link href="/" className="flex items-center justify-center gap-2">
+          <Link href="/admin" className="flex items-center justify-center gap-2">
             <Logo width="160" height="40" fill="var(--primary)" />
           </Link>
           <SidebarMenuItem>

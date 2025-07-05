@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { LogIn, Menu, X, Bell, Loader2 } from 'lucide-react'
+import { LogIn, Menu, X, Bell, Loader2, Package2, Package2Icon } from 'lucide-react'
 import {
   MdOutlineAdminPanelSettings,
   MdCalendarToday,
@@ -99,40 +99,48 @@ const Header = () => {
   const isDriver = user?.role === RoleEnum.DRIVER
 
   // Query lấy danh sách requests (cho tài xế)
-  const { data: requestResponse } = useQuery<RequestApiResponse>({
-    queryKey: ['requests', user?._id],
-    queryFn: () => getRequestsByDriverIdQueryFn(user!._id),
-    enabled: !!user?._id && isSuccess && isDriver,
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-  })
+  const { data: requestResponse, isLoading: isRequestsLoading } =
+    useQuery<RequestApiResponse>({
+      queryKey: ['requests', user?._id],
+      queryFn: () => getRequestsByDriverIdQueryFn(user!._id),
+      enabled: !!user?._id && isSuccess && isDriver,
+      staleTime: 5 * 60 * 1000, // 5 phút
+      refetchOnWindowFocus: false,
+      refetchOnMount: true,
+    })
 
   const pendingRequests =
     requestResponse?.data.filter((request) => request.status === 'pending') ||
     []
 
   // Query lấy danh sách routes
-  const { data: routeResponse } = useQuery<RouteApiResponse>({
-    queryKey: ['routes', user?._id],
-    queryFn: () =>
-      isDriver
-        ? getRoutesByDriverQueryFn(user!._id)
-        : getRoutesByPassengerQueryFn(user!._id),
-    enabled: !!user?._id && isSuccess,
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-  })
+  const { data: routeResponse, isLoading: isRoutesLoading } =
+    useQuery<RouteApiResponse>({
+      queryKey: ['routes', user?._id],
+      queryFn: () =>
+        isDriver
+          ? getRoutesByDriverQueryFn(user!._id)
+          : getRoutesByPassengerQueryFn(user!._id),
+      enabled: !!user?._id && isSuccess,
+      staleTime: 5 * 60 * 1000, // 5 phút
+      refetchOnWindowFocus: false,
+      refetchOnMount: true,
+    })
 
   const routes = routeResponse?.data || []
 
   // Query lấy danh sách completed requests
-  const { data: completedRequestsResponse } = useQuery<RequestApiResponse>({
+  const {
+    data: completedRequestsResponse,
+    isLoading: isCompletedRequestsLoading,
+  } = useQuery<RequestApiResponse>({
     queryKey: ['completedRequests', user?._id],
     queryFn: () =>
       isDriver
         ? getRequestsByDriverIdQueryFn(user!._id)
         : getRequestsByUserIdQueryFn(user!._id),
     enabled: !!user?._id && isSuccess,
+    staleTime: 5 * 60 * 1000, // 5 phút
     refetchOnWindowFocus: false,
     refetchOnMount: true,
   })
@@ -143,34 +151,35 @@ const Header = () => {
     ) || []
 
   // Query kiểm tra trạng thái đánh giá
-  const reviewStatusQueries = useQuery<(ReviewCheckResponse | null)[]>({
+  const { data: reviewStatusData, isLoading: isReviewStatusLoading } = useQuery<
+    (ReviewCheckResponse | null)[]
+  >({
     queryKey: ['reviewStatus', completedRequests.map((req) => req._id)],
     queryFn: async () => {
       const promises = completedRequests.map((req) =>
-        checkReviewStatusQueryFn(req._id, user!._id).catch((error) => {
-          console.error(
-            `Error checking review status for request ${req._id}:`,
-            {
-              error: error.message,
-              status: error.response?.status,
-              tripRequestId: req._id,
-              reviewerId: user!._id,
-            }
-          )
-          return null
-        })
+        checkReviewStatusQueryFn(req._id, user!._id).catch(
+          (error: ApiError) => {
+            toast.error(
+              `Lỗi khi kiểm tra trạng thái đánh giá cho yêu cầu ${req._id}`,
+              {
+                description: error.message || 'Vui lòng thử lại sau.',
+              }
+            )
+            return null
+          }
+        )
       )
-      const results = await Promise.all(promises)
-      return results
+      return Promise.all(promises)
     },
     enabled: completedRequests.length > 0 && !!user?._id && isSuccess,
+    staleTime: 5 * 60 * 1000, // 5 phút
     refetchOnWindowFocus: false,
     refetchOnMount: true,
   })
 
   const unratedRequests = completedRequests
     .filter((req, index) => {
-      const reviewStatus = reviewStatusQueries.data?.[index]
+      const reviewStatus = reviewStatusData?.[index]
       return reviewStatus && !reviewStatus.hasReviewed
     })
     .filter(Boolean)
@@ -219,26 +228,19 @@ const Header = () => {
 
   const handleReview = async (route: Route, requestId: string) => {
     try {
-      const request = unratedRequests.find((req) => req._id === requestId)
-      if (!request) {
-        toast.error('Không tìm thấy yêu cầu hợp lệ cho chuyến đi này.')
-        return
-      }
       if (!user) {
         toast.error('Vui lòng đăng nhập để đánh giá.')
         return
       }
-      if (user._id === request.routeId.userId) {
-        const revieweeId = request.userId._id
-        router.push(
-          `/rating?tripRequestId=${request._id}&revieweeId=${revieweeId}`
-        )
-      } else {
-        const revieweeId = request.routeId.userId
-        router.push(
-          `/rating?tripRequestId=${request._id}&revieweeId=${revieweeId}`
-        )
+      const request = unratedRequests.find((req) => req._id === requestId)
+      if (!request || !request.routeId?.userId) {
+        toast.error('Không tìm thấy yêu cầu hoặc thông tin tài xế hợp lệ.')
+        return
       }
+      const revieweeId = isDriver ? request.userId._id : request.routeId.userId
+      router.push(
+        `/rating?tripRequestId=${request._id}&revieweeId=${revieweeId}`
+      )
     } catch (error) {
       toast.error('Lỗi khi lấy thông tin chuyến đi', {
         description: 'Vui lòng thử lại sau.',
@@ -269,23 +271,16 @@ const Header = () => {
 
   // Tạo danh sách thông báo cho phần "Cần đánh giá"
   const reviewNotifications = sortedCompletedRoutesWithRequests
-    .flatMap((route) => {
+    .map((route) => {
       const routeUnratedRequests = unratedRequests.filter(
         (req) => req.routeId._id === route._id
       )
-      if (isDriver && routeUnratedRequests.length > 1) {
-        return routeUnratedRequests.map((req) => ({
-          type: 'route' as const,
-          data: { route, request: req },
-        }))
-      }
-      return [
-        {
-          type: 'route' as const,
-          data: { route, request: routeUnratedRequests[0] },
-        },
-      ].filter((item) => item.data.request)
+      return routeUnratedRequests.map((req) => ({
+        type: 'route' as const,
+        data: { route, request: req },
+      }))
     })
+    .flat()
     .slice(0, 3) // Giới hạn tối đa 3 thông báo đánh giá
 
   // Tạo danh sách thông báo cho phần "Yêu cầu mới"
@@ -327,12 +322,17 @@ const Header = () => {
           >
             Trang chủ
           </Link>
-          <Link
-            href="/booking"
-            className="text-[var(--primary)] hover:text-[var(--primary)]/80 transition-colors duration-150"
-          >
-            Đặt trước
-          </Link>
+
+          {user?.role === RoleEnum.DRIVER && (
+            <>
+              <Link
+                href="/registeratrip"
+                className="text-[var(--primary)] hover:text-[var(--primary)]/80 transition-colors duration-150"
+              >
+                Đăng ký tuyến đường
+              </Link>
+            </>
+          )}
           <Link
             href="/contact"
             className="text-[var(--primary)] hover:text-[var(--primary)]/80 transition-colors duration-150"
@@ -348,182 +348,190 @@ const Header = () => {
         </div>
 
         <div className="flex items-center space-x-2 sm:space-x-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  'relative hover:bg-[var(--muted)] hover:shadow-sm',
-                  'transition-all duration-200 ease-in-out rounded-[var(--radius-md)] p-2'
-                )}
-              >
-                <Bell size={20} className="text-[var(--foreground)]" />
-                {totalNotifications > 0 && (
-                  <span className="absolute top-0 right-0 h-5 w-5 bg-red-500 text-white text-xs font-semibold rounded-full flex items-center justify-center">
-                    {totalNotifications > 9 ? '9+' : totalNotifications}
-                  </span>
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              className={cn(
-                'w-72 sm:w-96 bg-[var(--card)] border-[var(--border)]',
-                'rounded-xl shadow-lg p-3 max-h-[80vh] overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--primary)] scrollbar-track-[var(--card)]'
-              )}
-              side="bottom"
-              align="end"
-              sideOffset={10}
-            >
-              {reviewStatusQueries.isLoading ? (
-                <DropdownMenuItem
+          {user && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
                   className={cn(
-                    'px-4 py-3 text-sm text-[var(--muted-foreground)] flex items-center justify-center gap-2',
-                    'rounded-lg'
+                    'relative hover:bg-[var(--muted)] hover:shadow-sm',
+                    'transition-all duration-200 ease-in-out rounded-[var(--radius-md)] p-2'
                   )}
                 >
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Đang tải thông báo...
-                </DropdownMenuItem>
-              ) : totalNotifications > 0 ? (
-                <>
-                  {/* Phần Yêu cầu mới */}
-                  {isDriver && requestNotifications.length > 0 && (
-                    <>
-                      <div className="px-4 py-2 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
-                        Yêu cầu mới
-                      </div>
-                      {requestNotifications.map(({ data }) => (
-                        <DropdownMenuItem
-                          key={data._id}
-                          className={cn(
-                            'flex flex-col items-start gap-2 px-4 py-3 text-sm text-[var(--foreground)]',
-                            'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
-                            'transition-all duration-200 ease-in-out rounded-lg cursor-default'
-                          )}
-                        >
-                          <span className="font-medium">
-                            {data.userId.name} yêu cầu đặt {data.seats} ghế cho
-                            tuyến {data.routeId.name}
-                            {data.message && `: "${data.message}"`}
-                          </span>
-                          <span className="text-xs text-[var(--muted-foreground)]">
-                            {formatTime(data.createdAt)}
-                          </span>
-                          <div className="mt-2 flex gap-2">
-                            <Button
-                              variant="default"
-                              size="sm"
-                              className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1.5 rounded-md"
-                              onClick={() => handleAction(data._id, 'accept')}
-                              disabled={handleRequestMutation.isPending}
-                            >
-                              {handleRequestMutation.isPending ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                'Chấp nhận'
-                              )}
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              className="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded-md"
-                              onClick={() => handleAction(data._id, 'reject')}
-                              disabled={handleRequestMutation.isPending}
-                            >
-                              {handleRequestMutation.isPending ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                'Từ chối'
-                              )}
-                            </Button>
-                          </div>
-                        </DropdownMenuItem>
-                      ))}
-                      {reviewNotifications.length > 0 && (
-                        <DropdownMenuSeparator className="my-2 bg-[var(--border)]" />
-                      )}
-                    </>
+                  <Bell size={20} className="text-[var(--foreground)]" />
+                  {totalNotifications > 0 && (
+                    <span className="absolute top-0 right-0 h-5 w-5 bg-red-500 text-white text-xs font-semibold rounded-full flex items-center justify-center">
+                      {totalNotifications > 9 ? '9+' : totalNotifications}
+                    </span>
                   )}
-
-                  {/* Phần Cần đánh giá */}
-                  {reviewNotifications.length > 0 && (
-                    <>
-                      <div className="px-4 py-2 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
-                        Cần đánh giá
-                      </div>
-                      {reviewNotifications.map(({ data }, index) => (
-                        <DropdownMenuItem
-                          key={`${data.route._id}-${data.request?._id}-${index}`}
-                          className={cn(
-                            'flex flex-col items-start gap-2 px-4 py-3 text-sm text-[var(--foreground)]',
-                            'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
-                            'transition-all duration-200 ease-in-out rounded-lg cursor-default'
-                          )}
-                        >
-                          <span className="font-medium">
-                            Chuyến đi{' '}
-                            <span className="font-semibold">
-                              {data.route.name}
-                            </span>{' '}
-                            đã hoàn thành.{' '}
-                            {isDriver && (
-                              <>
-                                Hành viên:{' '}
-                                <span className="font-semibold">
-                                  {data.request.userId.name}
-                                </span>
-                              </>
-                            )}
-                            Vui lòng đánh giá{' '}
-                            {isDriver ? 'hành khách' : 'tài xế'}.
-                          </span>
-                          <span className="text-xs text-[var(--muted-foreground)]">
-                            {formatTime(data.route.updatedAt)}
-                          </span>
-                          <div className="mt-2">
-                            <Button
-                              variant="default"
-                              size="sm"
-                              className="bg-green-500 hover:bg-green-600 text-white text-xs px-3 py-1.5 rounded-md"
-                              onClick={() =>
-                                handleReview(data.route, data.request._id)
-                              }
-                              disabled={reviewStatusQueries.isLoading}
-                            >
-                              Đánh giá
-                            </Button>
-                          </div>
-                        </DropdownMenuItem>
-                      ))}
-                    </>
-                  )}
-
-                  <DropdownMenuSeparator className="my-2 bg-[var(--border)]" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className={cn(
+                  'w-72 sm:w-96 bg-[var(--card)] border-[var(--border)]',
+                  'rounded-xl shadow-lg p-3 max-h-[80vh] overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--primary)] scrollbar-track-[var(--card)]'
+                )}
+                side="bottom"
+                align="end"
+                sideOffset={10}
+              >
+                {isRequestsLoading ||
+                isRoutesLoading ||
+                isCompletedRequestsLoading ||
+                isReviewStatusLoading ? (
                   <DropdownMenuItem
-                    asChild
                     className={cn(
-                      'flex items-center gap-2 px-4 py-2 text-sm text-[var(--primary)]',
-                      'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
-                      'transition-all duration-200 ease-in-out rounded-lg cursor-pointer'
+                      'px-4 py-3 text-sm text-[var(--muted-foreground)] flex items-center justify-center gap-2',
+                      'rounded-lg'
                     )}
                   >
-                    <Link href="/notifications">Xem thêm</Link>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Đang tải thông báo...
                   </DropdownMenuItem>
-                </>
-              ) : (
-                <DropdownMenuItem
-                  className={cn(
-                    'px-4 py-3 text-sm text-[var(--muted-foreground)] flex items-center justify-center gap-2',
-                    'rounded-lg'
-                  )}
-                >
-                  <Bell size={16} className="text-[var(--muted-foreground)]" />
-                  Không có thông báo mới
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                ) : totalNotifications > 0 ? (
+                  <>
+                    {/* Phần Yêu cầu mới */}
+                    {isDriver && requestNotifications.length > 0 && (
+                      <>
+                        <div className="px-4 py-2 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+                          Yêu cầu mới
+                        </div>
+                        {requestNotifications.map(({ data }) => (
+                          <DropdownMenuItem
+                            key={data._id}
+                            className={cn(
+                              'flex flex-col items-start gap-2 px-4 py-3 text-sm text-[var(--foreground)]',
+                              'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                              'transition-all duration-200 ease-in-out rounded-lg cursor-default'
+                            )}
+                          >
+                            <span className="font-medium">
+                              {data.userId.name} yêu cầu đặt {data.seats} ghế
+                              cho tuyến {data.routeId.name}
+                              {data.message && `: "${data.message}"`}
+                            </span>
+                            <span className="text-xs text-[var(--muted-foreground)]">
+                              {formatTime(data.createdAt)}
+                            </span>
+                            <div className="mt-2 flex gap-2">
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1.5 rounded-md"
+                                onClick={() => handleAction(data._id, 'accept')}
+                                disabled={handleRequestMutation.isPending}
+                              >
+                                {handleRequestMutation.isPending ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  'Chấp nhận'
+                                )}
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded-md"
+                                onClick={() => handleAction(data._id, 'reject')}
+                                disabled={handleRequestMutation.isPending}
+                              >
+                                {handleRequestMutation.isPending ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  'Từ chối'
+                                )}
+                              </Button>
+                            </div>
+                          </DropdownMenuItem>
+                        ))}
+                        {reviewNotifications.length > 0 && (
+                          <DropdownMenuSeparator className="my-2 bg-[var(--border)]" />
+                        )}
+                      </>
+                    )}
+
+                    {/* Phần Cần đánh giá */}
+                    {reviewNotifications.length > 0 && (
+                      <>
+                        <div className="px-4 py-2 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+                          Cần đánh giá
+                        </div>
+                        {reviewNotifications.map(({ data }, index) => (
+                          <DropdownMenuItem
+                            key={`${data.route._id}-${data.request?._id}-${index}`}
+                            className={cn(
+                              'flex flex-col items-start gap-2 px-4 py-3 text-sm text-[var(--foreground)]',
+                              'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                              'transition-all duration-200 ease-in-out rounded-lg cursor-default'
+                            )}
+                          >
+                            <span className="font-medium">
+                              Chuyến đi{' '}
+                              <span className="font-semibold">
+                                {data.route.name}
+                              </span>{' '}
+                              đã hoàn thành.{' '}
+                              {isDriver && (
+                                <>
+                                  Hành khách:{' '}
+                                  <span className="font-semibold">
+                                    {data.request.userId.name}
+                                  </span>
+                                </>
+                              )}
+                              Vui lòng đánh giá{' '}
+                              {isDriver ? 'hành khách' : 'tài xế'}.
+                            </span>
+                            <span className="text-xs text-[var(--muted-foreground)]">
+                              {formatTime(data.route.updatedAt)}
+                            </span>
+                            <div className="mt-2">
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="bg-green-500 hover:bg-green-600 text-white text-xs px-3 py-1.5 rounded-md"
+                                onClick={() =>
+                                  handleReview(data.route, data.request._id)
+                                }
+                                disabled={isReviewStatusLoading}
+                              >
+                                Đánh giá
+                              </Button>
+                            </div>
+                          </DropdownMenuItem>
+                        ))}
+                      </>
+                    )}
+
+                    <DropdownMenuSeparator className="my-2 bg-[var(--border)]" />
+                    <DropdownMenuItem
+                      asChild
+                      className={cn(
+                        'flex items-center gap-2 px-4 py-2 text-sm text-[var(--primary)]',
+                        'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                        'transition-all duration-200 ease-in-out rounded-lg cursor-pointer'
+                      )}
+                    >
+                      <Link href="/notifications">Xem thêm</Link>
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <DropdownMenuItem
+                    className={cn(
+                      'px-4 py-3 text-sm text-[var(--muted-foreground)] flex items-center justify-center gap-2',
+                      'rounded-lg'
+                    )}
+                  >
+                    <Bell
+                      size={16}
+                      className="text-[var(--muted-foreground)]"
+                    />
+                    Không có thông báo mới
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           {!user ? (
             <div className="hidden md:flex sm:flex items-center gap-2">
@@ -571,7 +579,7 @@ const Header = () => {
                         'flex items-center justify-center shadow-sm ring-1 ring-[var(--border)]'
                       )}
                     >
-                      {user?.avatar ? (
+                      {user.avatar ? (
                         <Image
                           src={user.avatar}
                           width={36}
@@ -581,17 +589,17 @@ const Header = () => {
                         />
                       ) : (
                         <span className="text-sm font-semibold text-[var(--foreground)]">
-                          {user?.name?.split(' ')?.[0]?.charAt(0)}
-                          {user?.name?.split(' ')?.[1]?.charAt(0)}
+                          {user.name?.split(' ')?.[0]?.charAt(0)}
+                          {user.name?.split(' ')?.[1]?.charAt(0)}
                         </span>
                       )}
                     </div>
                     <div className="flex-1 text-left text-sm leading-tight hidden lg:grid">
                       <span className="truncate font-semibold text-[var(--foreground)]">
-                        {user?.name}
+                        {user.name}
                       </span>
                       <span className="truncate text-xs text-[var(--muted-foreground)]">
-                        {user?.email}
+                        {user.email}
                       </span>
                     </div>
                     <span className="ml-auto lg:block hidden size-4 text-[var(--muted-foreground)]">
@@ -643,8 +651,34 @@ const Header = () => {
                       <span>Trang quản trị</span>
                     </DropdownMenuItem>
                   )}
+                  {user.role === RoleEnum.DRIVER && (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => router.push('/tripmanage')}
+                        className={cn(
+                          'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
+                          'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                          'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]'
+                        )}
+                      >
+                        <MdOutlineAdminPanelSettings size={18} />
+                        <span>Quản lý tuyến đường</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => router.push('/driverpass')}
+                        className={cn(
+                          'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
+                          'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                          'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]'
+                        )}
+                      >
+                        <Package2Icon size={18} />
+                        <span>Gói dịch vụ</span>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSeparator className="my-1 bg-[var(--border)]" />
-                  <div className=" py-2">
+                  <div className="py-2">
                     <ThemeColorToggle />
                   </div>
                   <DropdownMenuItem
@@ -712,17 +746,21 @@ const Header = () => {
           >
             Trang chủ
           </Link>
-          <Link
-            href="/booking"
-            className={cn(
-              'p-3 text-[var(--foreground)] text-sm font-medium',
-              'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
-              'transition-all duration-200 ease-in-out rounded-lg'
-            )}
-            onClick={() => setIsOpen(false)}
-          >
-            Đặt trước
-          </Link>
+          {user?.role === RoleEnum.DRIVER && (
+            <>
+              <Link
+                href="/registeratrip"
+                className={cn(
+                  'p-3 text-[var(--foreground)] text-sm font-medium',
+                  'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                  'transition-all duration-200 ease-in-out rounded-lg'
+                )}
+                onClick={() => setIsOpen(false)}
+              >
+                Đăng ký tuyến đường
+              </Link>
+            </>
+          )}
           <Link
             href="/contact"
             className={cn(
@@ -796,7 +834,7 @@ const Header = () => {
                         'flex items-center justify-center shadow-sm ring-1 ring-[var(--border)]'
                       )}
                     >
-                      {user?.avatar ? (
+                      {user.avatar ? (
                         <Image
                           src={user.avatar}
                           width={40}
@@ -806,17 +844,17 @@ const Header = () => {
                         />
                       ) : (
                         <span className="text-base font-semibold text-[var(--foreground)]">
-                          {user?.name?.split(' ')?.[0]?.charAt(0)}
-                          {user?.name?.split(' ')?.[1]?.charAt(0)}
+                          {user.name?.split(' ')?.[0]?.charAt(0)}
+                          {user.name?.split(' ')?.[1]?.charAt(0)}
                         </span>
                       )}
                     </div>
                     <div className="grid flex-1 text-left text-sm leading-tight">
                       <span className="truncate font-semibold text-[var(--foreground)]">
-                        {user?.name}
+                        {user.name}
                       </span>
                       <span className="truncate text-xs text-[var(--muted-foreground)]">
-                        {user?.email}
+                        {user.email}
                       </span>
                     </div>
                     <span className="ml-auto size-5 text-[var(--muted-foreground)]">
@@ -867,6 +905,32 @@ const Header = () => {
                       <MdOutlineAdminPanelSettings size={18} />
                       <span>Trang quản trị</span>
                     </DropdownMenuItem>
+                  )}
+                  {user.role === RoleEnum.DRIVER && (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => router.push('/tripmanage')}
+                        className={cn(
+                          'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
+                          'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                          'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]'
+                        )}
+                      >
+                        <MdOutlineAdminPanelSettings size={18} />
+                        <span>Quản lý tuyến đường</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => router.push('/tripmanage')}
+                        className={cn(
+                          'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
+                          'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                          'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]'
+                        )}
+                      >
+                        <Package2Icon size={18} />
+                        <span>Gói dịch vụ</span>
+                      </DropdownMenuItem>
+                    </>
                   )}
                   <DropdownMenuSeparator className="my-1 bg-[var(--border)]" />
                   <div className="py-2">

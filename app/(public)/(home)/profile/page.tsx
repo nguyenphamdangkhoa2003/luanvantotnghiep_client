@@ -324,7 +324,7 @@ export default function UserProfilePage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => router.push(`/reviews/${user._id}`)}
+            onClick={() => router.push(`/profile/reviews/${user._id}`)}
             className="h-10 w-full sm:w-auto px-4 text-[var(--primary)] border-[var(--border)] hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] rounded-lg"
             aria-label="Xem nhận xét của người dùng"
           >

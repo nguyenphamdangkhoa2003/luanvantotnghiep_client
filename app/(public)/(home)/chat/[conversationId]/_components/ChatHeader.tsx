@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { RoleEnum } from '@/types/enum'
 import { MoreVertical } from 'lucide-react'
 
 interface ChatHeaderProps {
@@ -53,12 +54,14 @@ export default function ChatHeader({
             >
               Xác nhận đặt xe
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={onCancelBooking}
-              className="text-red-600 focus:text-red-600"
-            >
-              Hủy đặt xe
-            </DropdownMenuItem>
+            {user?.role && user.role === RoleEnum.CUSTOMER && (
+              <DropdownMenuItem
+                onClick={onCancelBooking}
+                className="text-red-600 focus:text-red-600"
+              >
+                Hủy đặt xe
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

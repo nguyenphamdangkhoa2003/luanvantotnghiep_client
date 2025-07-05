@@ -153,7 +153,7 @@ export function VehicleInfoSection({
       toast.success(
         isUpdating
           ? 'Cập nhật thông tin phương tiện thành công.'
-          : 'Lưu thông tin phương tiện thành công.'
+          : 'Đã gửi xác minh phương tiện thành công.'
       )
       form.reset()
       onSuccess?.()
@@ -585,23 +585,7 @@ export function VehicleInfoSection({
               />
             </div>
             <div className="flex justify-end gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  form.reset({
-                    licensePlate: initialData?.plateNumber || '',
-                    vehicleModel: initialData?.brand || '',
-                    seats: initialData?.seats || 4,
-                    vehicleRegistration: undefined,
-                    insuranceDocument: undefined,
-                  })
-                }
-                disabled={vehicleMutation.isPending}
-                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
-              >
-                Xóa form
-              </Button>
+              
               <Button
                 type="submit"
                 disabled={vehicleMutation.isPending}
@@ -634,7 +618,7 @@ export function VehicleInfoSection({
                 ) : isUpdating ? (
                   'Cập nhật thông tin phương tiện'
                 ) : (
-                  'Lưu thông tin phương tiện'
+                  'xác minh phương tiện'
                 )}
               </Button>
             </div>
