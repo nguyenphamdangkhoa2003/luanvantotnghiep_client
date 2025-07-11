@@ -27,6 +27,7 @@ import {
   deleteRouteMutationFn,
 } from '@/api/routes/route'
 import { format } from 'date-fns'
+import CloneRouteForm from '@/components/form/CloneTripForm'
 
 interface Route {
   id: string
@@ -39,6 +40,7 @@ interface Route {
     _id: string
     coordinates?: [number, number]
     distance?: number
+    estimatedArrivalTime: string
   }[]
   startCoords?: { lng: number; lat: number }
   endCoords?: { lng: number; lat: number }
@@ -49,6 +51,8 @@ interface Route {
   endTime?: string
   seatsAvailable?: number
   price?: number
+  maxPickupDistance: number
+  isNegotiable:boolean
 }
 
 const formatAddress = (name: string): string => {
@@ -71,9 +75,9 @@ const TripManage: React.FC = () => {
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null)
   const [routeToDelete, setRouteToDelete] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [itemsPerPage, setItemsPerPage] = useState(5)
   const { user, isLoading: isAuthLoading } = useAuthContext()
-
+  const [isCloneDialogOpen, setIsCloneDialogOpen]=useState(false)
   const {
     data: routes = [],
     isLoading,
@@ -137,10 +141,12 @@ const TripManage: React.FC = () => {
         endTime: route.endTime,
         seatsAvailable: route.seatsAvailable,
         price: route.price,
+        maxPickupDistance: route.maxPickupDistance,
+        isNegotiable: route.isNegotiable,
       }))
     },
   })
-
+console.log(routes)
   const deleteMutation = useMutation({
     mutationFn: deleteRouteMutationFn,
     onSuccess: () => {
@@ -189,6 +195,11 @@ const TripManage: React.FC = () => {
   const handleEdit = (route: Route) => {
     setSelectedRoute(route)
     setIsEditDialogOpen(true)
+  }
+
+  const handleClone = (route: Route) => {
+    setSelectedRoute(route)
+    setIsCloneDialogOpen(true)
   }
 
   const handleViewPassengers = (routeId: string) => {
@@ -286,6 +297,7 @@ const TripManage: React.FC = () => {
             <>
               <RouteTable
                 routes={paginatedRoutes}
+                onClone={handleClone}
                 onEdit={handleEdit}
                 onViewPassengers={handleViewPassengers}
                 onDelete={handleDelete}
@@ -330,6 +342,7 @@ const TripManage: React.FC = () => {
                             ? { lng: wp.coordinates[0], lat: wp.coordinates[1] }
                             : null,
                           distance: wp.distance || 0,
+                          estimatedArrivalTime: wp.estimatedArrivalTime,
                         }))
                       : [],
                   path: selectedRoute.path || {
@@ -342,8 +355,59 @@ const TripManage: React.FC = () => {
                   endTime: selectedRoute.endTime,
                   seatsAvailable: selectedRoute.seatsAvailable || 1,
                   price: selectedRoute.price || 1000,
+                  maxPickupDistance: selectedRoute.maxPickupDistance,
+                  isNegotiable: selectedRoute.isNegotiable,
                 }}
                 setIsOpen={setIsEditDialogOpen}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isCloneDialogOpen} onOpenChange={setIsCloneDialogOpen}>
+        <DialogContent className="sm:max-w-[1200px] p-0 max-h-[95vh] overflow-y-auto">
+          <DialogHeader className="px-6 pt-6 pb-4 sticky top-0 bg-[var(--popover)] z-10">
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              Tạo tuyến cũ
+            </DialogTitle>
+          </DialogHeader>
+          <div className="px-6 pb-6">
+            {selectedRoute && (
+              <CloneRouteForm
+                route={{
+                  id: selectedRoute.id,
+                  name: selectedRoute.routeName,
+                  startAddress: selectedRoute.startPoint,
+                  startCoords: selectedRoute.startCoords || { lng: 0, lat: 0 },
+                  endAddress: selectedRoute.endPoint,
+                  endCoords: selectedRoute.endCoords || { lng: 0, lat: 0 },
+                  waypoints:
+                    selectedRoute.waypoints &&
+                    selectedRoute.waypoints.length > 2
+                      ? selectedRoute.waypoints.slice(1, -1).map((wp) => ({
+                          name: wp.name,
+                          coordinates: wp.coordinates
+                            ? { lng: wp.coordinates[0], lat: wp.coordinates[1] }
+                            : null,
+                          distance: wp.distance || 0,
+                          estimatedArrivalTime: wp.estimatedArrivalTime,
+                        }))
+                      : [],
+                  path: selectedRoute.path || {
+                    type: 'LineString',
+                    coordinates: [],
+                  },
+                  distance: selectedRoute.distance || 0,
+                  duration: selectedRoute.duration || 0,
+                  startTime: selectedRoute.startTime,
+                  endTime: selectedRoute.endTime,
+                  seatsAvailable: selectedRoute.seatsAvailable || 1,
+                  price: selectedRoute.price || 1000,
+                  maxPickupDistance: selectedRoute.maxPickupDistance,
+                  isNegotiable: selectedRoute.isNegotiable,
+                }}
+                setIsOpen={setIsCloneDialogOpen}
               />
             )}
           </div>

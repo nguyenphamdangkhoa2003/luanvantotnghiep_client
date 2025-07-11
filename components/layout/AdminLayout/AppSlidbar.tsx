@@ -33,29 +33,29 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const data = {
     navMain: [
       {
-        title: 'Dashboard',
+        title: 'Bảng điều khiển',
         url: '/admin/dashboard',
         icon: LayoutDashboardIcon,
       },
       {
-        title: 'Users',
+        title: 'Người dùng',
         url: '/admin/users',
         icon: Users,
       },
       {
-        title: 'Pass Packages',
+        title: 'Gói vé',
         url: '/admin/pass-packages',
         icon: Package,
       },
       {
-        title: 'Driver Passes',
+        title: 'Gói tài xế đăng ký',
         url: '/admin/driverpasses',
         icon: Car,
       },
       {
-        title: 'Reviews',
+        title: 'Đánh giá',
         url: '/admin/reviews',
-        icon: Star, 
+        icon: Star,
       },
       // {
       //   title: 'Settings',

@@ -23,25 +23,29 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { Pencil, Route, Trash, Users } from 'lucide-react'
+import { FaRegClone } from 'react-icons/fa'
 
 interface Route {
   id: string
   routeName: string
   startPoint: string
   endPoint: string
+  seat:number
   status: 'active' | 'pending' | 'cancelled'
   waypoints?: { name: string; _id: string }[]
 }
 
 interface RouteTableProps {
   routes: Route[]
-  onEdit: (route: Route) => void
+  onClone: (route: any) => void
+  onEdit: (route: any) => void
   onViewPassengers: (routeId: string) => void
   onDelete: (routeId: string) => void
 }
 
 const RouteTable: React.FC<RouteTableProps> = ({
   routes,
+  onClone,
   onEdit,
   onViewPassengers,
   onDelete,
@@ -50,16 +54,24 @@ const RouteTable: React.FC<RouteTableProps> = ({
     switch (status) {
       case 'active':
         return (
-          <Badge className="bg-green-100 text-green-800">Đang hoạt động</Badge>
+          <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
+            Đang hoạt động
+          </Badge>
         )
       case 'pending':
         return (
-          <Badge className="bg-yellow-100 text-yellow-800">Chờ duyệt</Badge>
+          <Badge className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+            Chờ duyệt
+          </Badge>
         )
       case 'cancelled':
-        return <Badge className="bg-red-100 text-red-800">Đã hủy</Badge>
+        return (
+          <Badge className="bg-red-500/10 text-red-600 border-red-500/20">
+            Đã hủy
+          </Badge>
+        )
       default:
-        return <Badge>{status}</Badge>
+        return <Badge className="bg-gray-100 text-gray-800">{status}</Badge>
     }
   }
 
@@ -92,14 +104,14 @@ const RouteTable: React.FC<RouteTableProps> = ({
                 <HoverCard>
                   <HoverCardTrigger asChild>
                     <div className="flex items-center gap-2 cursor-pointer">
-                      <Route className="h-4 w-4 text-primary flex-shrink-0" />
+                      <Route className="h-4 w-4 text-[var(--primary)] flex-shrink-0" />
                       <span className="truncate max-w-[200px]">
                         {route.startPoint} - {route.endPoint}
                       </span>
                     </div>
                   </HoverCardTrigger>
-                  <HoverCardContent className="w-80">
-                    <div className="space-y-2">
+                  <HoverCardContent className="w-80 bg-[var(--popover)] border-[var(--border)]">
+                    <div className="space-y-2 text-[var(--foreground)]">
                       <h4 className="font-medium">Thông tin tuyến đường</h4>
                       <p className="text-sm">
                         <span className="font-semibold">Từ:</span>{' '}
@@ -137,7 +149,7 @@ const RouteTable: React.FC<RouteTableProps> = ({
                         {route.startPoint}
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent>
+                    <TooltipContent >
                       <p>{route.startPoint}</p>
                     </TooltipContent>
                   </Tooltip>
@@ -151,7 +163,7 @@ const RouteTable: React.FC<RouteTableProps> = ({
                         {route.endPoint}
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent>
+                    <TooltipContent >
                       <p>{route.endPoint}</p>
                     </TooltipContent>
                   </Tooltip>
@@ -169,12 +181,12 @@ const RouteTable: React.FC<RouteTableProps> = ({
                           variant="outline"
                           size="sm"
                           onClick={() => onViewPassengers(route.id)}
-                          className="h-8 w-8 p-0"
+                          className="h-8 w-8 p-0 border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)] hover:border-[var(--ring)]"
                         >
-                          <Users className="h-4 w-4" />
+                          <Users className="h-4 w-4 text-[var(--primary)]" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>
+                      <TooltipContent >
                         <p>Xem hành khách</p>
                       </TooltipContent>
                     </Tooltip>
@@ -187,17 +199,34 @@ const RouteTable: React.FC<RouteTableProps> = ({
                             variant="outline"
                             size="sm"
                             onClick={() => onEdit(route)}
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 p-0 border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)] hover:border-[var(--ring)]"
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Pencil className="h-4 w-4 text-blue-600" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>
+                        <TooltipContent >
                           <p>Chỉnh sửa tuyến đường</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   )}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onClone(route)}
+                          className="h-8 w-8 p-0 border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)] hover:border-[var(--ring)]"
+                        >
+                          <FaRegClone className="h-4 w-4 text-green-600" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent >
+                        <p>Tạo lại tuyến</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   {route.status === 'active' && (
                     <TooltipProvider>
                       <Tooltip>
@@ -206,12 +235,12 @@ const RouteTable: React.FC<RouteTableProps> = ({
                             variant="destructive"
                             size="sm"
                             onClick={() => onDelete(route.id)}
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 p-0 bg-[var(--destructive)] text-[var(--destructive-foreground)] hover:bg-[var(--destructive)]/90"
                           >
                             <Trash className="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>
+                        <TooltipContent className="">
                           <p>Xóa</p>
                         </TooltipContent>
                       </Tooltip>

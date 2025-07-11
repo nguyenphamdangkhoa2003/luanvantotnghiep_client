@@ -33,29 +33,29 @@ import Link from 'next/link'
 
 function AdminPage() {
   // Mock data for alerts (replace with real data)
-  const alerts = [
-    {
-      id: 1,
-      type: 'negative_review',
-      message: 'Người dùng báo cáo trải nghiệm tiêu cực',
-      severity: 'cao',
-      user: { name: 'John Doe', id: '123' },
-    },
-    {
-      id: 2,
-      type: 'low_rating',
-      message: 'Tài xế nhận đánh giá 1 sao',
-      severity: 'trung bình',
-      user: { name: 'Jane Smith', id: '456' },
-    },
-    {
-      id: 3,
-      type: 'document_expired',
-      message: 'Giấy phép lái xe đã hết hạn',
-      severity: 'thấp',
-      user: { name: 'Bob Johnson', id: '789' },
-    },
-  ]
+  // const alerts = [
+  //   {
+  //     id: 1,
+  //     type: 'negative_review',
+  //     message: 'Người dùng báo cáo trải nghiệm tiêu cực',
+  //     severity: 'cao',
+  //     user: { name: 'John Doe', id: '123' },
+  //   },
+  //   {
+  //     id: 2,
+  //     type: 'low_rating',
+  //     message: 'Tài xế nhận đánh giá 1 sao',
+  //     severity: 'trung bình',
+  //     user: { name: 'Jane Smith', id: '456' },
+  //   },
+  //   {
+  //     id: 3,
+  //     type: 'document_expired',
+  //     message: 'Giấy phép lái xe đã hết hạn',
+  //     severity: 'thấp',
+  //     user: { name: 'Bob Johnson', id: '789' },
+  //   },
+  // ]
 
   const {
     data: apiResponse,
@@ -155,7 +155,7 @@ function AdminPage() {
           </CardContent>
         </Card>
 
-        <Card className="border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+        {/* <Card className="border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-2 bg-red-50 rounded-lg">
               <AlertTriangle className="h-5 w-5 text-red-500" />
@@ -165,7 +165,7 @@ function AdminPage() {
               <p className="text-xl font-semibold">{alerts.length}</p>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
 
         <Card className="border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="p-4 flex items-center gap-4">

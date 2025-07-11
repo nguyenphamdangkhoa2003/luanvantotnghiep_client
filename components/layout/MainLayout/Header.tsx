@@ -627,17 +627,20 @@ const Header = () => {
                     <MdAccountCircle size={18} />
                     <span>Hồ sơ</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => router.push('/historybooking')}
-                    className={cn(
-                      'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
-                      'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
-                      'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]'
-                    )}
-                  >
-                    <MdCalendarToday size={18} />
-                    <span>Lịch sử hoạt động</span>
-                  </DropdownMenuItem>
+                  {user.role === RoleEnum.CUSTOMER && (
+                    <DropdownMenuItem
+                      onClick={() => router.push('/historybooking')}
+                      className={cn(
+                        'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
+                        'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                        'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]'
+                      )}
+                    >
+                      <MdCalendarToday size={18} />
+                      <span>Lịch sử hoạt động</span>
+                    </DropdownMenuItem>
+                  )}
+
                   {user.role === RoleEnum.ADMIN && (
                     <DropdownMenuItem
                       onClick={() => router.push('/admin')}
@@ -882,17 +885,20 @@ const Header = () => {
                     <MdAccountCircle size={18} />
                     <span>Hồ sơ</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => router.push('/historybooking')}
-                    className={cn(
-                      'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
-                      'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
-                      'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]'
-                    )}
-                  >
-                    <MdCalendarToday size={18} />
-                    <span>Lịch sử hoạt động</span>
-                  </DropdownMenuItem>
+                  {user.role === RoleEnum.CUSTOMER && (
+                    <DropdownMenuItem
+                      onClick={() => router.push('/historybooking')}
+                      className={cn(
+                        'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
+                        'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',
+                        'transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]'
+                      )}
+                    >
+                      <MdCalendarToday size={18} />
+                      <span>Lịch sử hoạt động</span>
+                    </DropdownMenuItem>
+                  )}
+
                   {user.role === RoleEnum.ADMIN && (
                     <DropdownMenuItem
                       onClick={() => router.push('/admin')}

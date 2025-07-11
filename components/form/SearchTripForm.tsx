@@ -2,7 +2,7 @@
 
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CalendarIcon, MapPin, Users, Loader2 } from 'lucide-react'
+import { CalendarIcon, MapPin, Users, Loader2, Ruler } from 'lucide-react'
 import { z } from 'zod'
 import { useContext, useEffect, useState, useRef } from 'react'
 import { Input } from '@/components/ui/input'
@@ -54,6 +54,13 @@ const schema = z.object({
     })
     .min(1, 'Số người ít nhất là 1')
     .max(4, 'Tối đa 4 người'),
+  maxDistance: z
+    .number({
+      required_error: 'Vui lòng nhập khoảng cách tối đa',
+      invalid_type_error: 'Khoảng cách phải là số',
+    })
+    .min(1, 'Khoảng cách tối thiểu là 1 m')
+    .max(10000, 'Khoảng cách tối đa là 10000 m'),
 })
 
 type FormData = z.infer<typeof schema>
@@ -82,6 +89,7 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
       dropoff: '',
       date: format(new Date(), 'yyyy-MM-dd'),
       passengers: 1,
+      maxDistance: 1, // Default to max allowed distance
     },
   })
   const [pickupQuery, setPickupQuery] = useState('')
@@ -99,7 +107,6 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
   const [route, setRoute] = useState<any[]>([])
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(false)
-  // Added to prevent double submissions
   const [isSearching, setIsSearching] = useState(false)
 
   const router = useRouter()
@@ -270,10 +277,12 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
         endCoords: dropoffCoords || undefined,
         date: data.date,
         seatsAvailable: data.passengers,
+        maxDistance: data.maxDistance, 
       }
-
+      console.log(searchData)
       const response = await searchRoutesQueryFn(searchData)
       const searchResults = response.data
+      console.log(searchResults)
 
       const queryParams = new URLSearchParams({
         pickup: data.pickup,
@@ -282,9 +291,10 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
         passengers: data.passengers.toString(),
         pickupCoords: JSON.stringify(pickupCoords || {}),
         dropoffCoords: JSON.stringify(dropoffCoords || {}),
+        maxDistance: data.maxDistance.toString(),
       }).toString()
 
-      // Lưu vào localStorage
+      // Save to localStorage
       localStorage.setItem('searchResults', JSON.stringify(searchResults))
       localStorage.setItem(
         'searchTripForm',
@@ -295,6 +305,7 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
           passengers: data.passengers,
           pickupCoords,
           dropoffCoords,
+          maxDistance: data.maxDistance,
         })
       )
 
@@ -349,7 +360,7 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
   }, [dateValue, setValue])
 
   const hasErrors =
-    errors.pickup || errors.dropoff || errors.date || errors.passengers
+    errors.pickup || errors.dropoff || errors.date || errors.passengers || errors.maxDistance
 
   return (
     <div className="flex flex-col items-center mt-5 px-4">
@@ -578,7 +589,7 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
                 {...register('passengers', {
                   valueAsNumber: true,
                   min: 1,
-                  max: 6,
+                  max: 4,
                 })}
                 className="pl-10 h-11 rounded-lg border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] transition-all"
               />
@@ -590,25 +601,47 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
             )}
           </div>
 
-          {/* Search Button */}
-          <div className="lg:pt-7 pt-0 sm:col-span-2 lg:col-span-1">
-            <div className="flex items-end justify-center">
-              <Button
-                type="submit"
-                disabled={isLoading || isSearching}
-                className="bg-[var(--primary)] text-[var(--primary-foreground)] text-sm font-semibold px-8 py-3 rounded-lg shadow-md hover:opacity-90 transition-all w-full h-11"
-              >
-                {isLoading ? (
-                  <div className="flex items-center justify-center">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Đang tìm...
-                  </div>
-                ) : (
-                  'Tìm chuyến'
-                )}
-              </Button>
+          {/* Max Distance */}
+          <div>
+            <label className="block text-[var(--foreground)] text-sm font-medium mb-2">
+              Khoảng cách tối đa (m)
+            </label>
+            <div className="relative">
+              <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--muted-foreground)]" />
+              <Input
+                type="number"
+                {...register('maxDistance', {
+                  valueAsNumber: true,
+                  min: 1,
+                  max: 10000,
+                })}
+                className="pl-10 h-11 rounded-lg border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] transition-all"
+              />
             </div>
-            {hasErrors && <div className="h-5"></div>}
+            {errors.maxDistance && (
+              <p className="text-[var(--destructive)] text-xs mt-1.5 font-medium">
+                {errors.maxDistance.message}
+              </p>
+            )}
+          </div>
+          
+        </div>
+        <div className="lg:pt-2 pt-0 ">
+          <div className="flex items-end justify-center">
+            <Button
+              type="submit"
+              disabled={isLoading || isSearching}
+              className="bg-[var(--primary)] text-[var(--primary-foreground)] text-sm font-semibold px-8 py-3 rounded-lg shadow-md hover:opacity-90 transition-all  w-full max-w-xs h-11"
+            >
+              {isLoading ? (
+                <div className="flex items-center justify-center">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang tìm...
+                </div>
+              ) : (
+                'Tìm chuyến'
+              )}
+            </Button>
           </div>
         </div>
       </form>
@@ -738,6 +771,5 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
     </div>
   )
 }
-
 
 export default SearchTrip

@@ -2,10 +2,20 @@
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {  Clock, MapPin, Users, Route, X, Plus } from 'lucide-react'
-import { format, startOfToday } from 'date-fns'
+import {
+  Clock,
+  MapPin,
+  Users,
+  Route,
+  X,
+  Plus,
+  Calendar as CalendarIcon,
+  AlertCircle,
+  DollarSign,
+  Ruler,
+} from 'lucide-react'
+import { format, startOfToday, isSameDay, startOfDay } from 'date-fns'
 import { vi } from 'date-fns/locale'
-import { Calendar as CalendarIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Popover,
@@ -34,6 +44,14 @@ import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { createRouteMutationFn } from '@/api/routes/route'
 import { Calendar } from '@/components/ui/calendar'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+
 const routeSchema = z
   .object({
     departurePoint: z.string().min(1, 'Điểm đi là bắt buộc'),
@@ -86,6 +104,16 @@ const routeSchema = z
       })
       .min(1000, 'Giá tiền tối thiểu là 1,000 VND')
       .max(5000000, 'Giá tiền tối đa là 5,000,000 VND'),
+    maxPickupDistance: z.coerce
+      .number({
+        required_error: 'Vui lòng nhập khoảng cách đón tối đa',
+        invalid_type_error: 'Khoảng cách phải là số',
+      })
+      .min(1, 'Khoảng cách tối thiểu là 1 m')
+      .max(10000, 'Khoảng cách tối đa là 10000 m'),
+    isNegotiable: z.boolean({
+      required_error: 'Vui lòng chọn trạng thái thương lượng giá',
+    }),
   })
   .refine(
     (data) => {
@@ -117,6 +145,7 @@ type Waypoint = {
   id: string
   name: string
   coordinates: { lng: number; lat: number } | null
+  estimatedArrivalDate?: Date
 }
 
 type MapRef = {
@@ -146,12 +175,14 @@ export default function RegistrationForm() {
     defaultValues: {
       departurePoint: '',
       destination: '',
-      departureDate: new Date(),
+      departureDate: startOfToday(),
       departureTime: '08:00',
-      endDate: new Date(),
+      endDate: startOfToday(),
       endTime: '12:00',
       availableSeats: 1,
       price: 10000,
+      maxPickupDistance: 1,
+      isNegotiable: false,
     },
   })
 
@@ -187,6 +218,9 @@ export default function RegistrationForm() {
   >([])
   const [isAddingWaypoint, setIsAddingWaypoint] = useState(false)
   const [isLoadingWaypoint, setIsLoadingWaypoint] = useState(false)
+  const [newWaypointDate, setNewWaypointDate] = useState<Date | undefined>(
+    watch('departureDate')
+  )
 
   // State for map and routes
   const [route, setRoute] = useState<any[]>([])
@@ -200,6 +234,40 @@ export default function RegistrationForm() {
   const waypointTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+
+  // Track last departureDate to avoid overwriting manual edits
+  const [lastDepartureDate, setLastDepartureDate] = useState<Date | undefined>(
+    watch('departureDate')
+  )
+
+  // Sync waypoint dates with departureDate, preserving manually edited dates
+  useEffect(() => {
+    const departureDate = watch('departureDate')
+    if (
+      departureDate &&
+      lastDepartureDate &&
+      !isSameDay(departureDate, lastDepartureDate)
+    ) {
+      setWaypoints((prevWaypoints) =>
+        prevWaypoints.map((wp) => {
+          // Only update waypoints that haven't been manually edited
+          if (
+            !wp.estimatedArrivalDate ||
+            isSameDay(wp.estimatedArrivalDate, lastDepartureDate)
+          ) {
+            return { ...wp, estimatedArrivalDate: departureDate }
+          }
+          return wp
+        })
+      )
+      setNewWaypointDate(departureDate)
+      setLastDepartureDate(departureDate)
+    } else if (departureDate && !lastDepartureDate) {
+      // Initial sync for new waypoints
+      setNewWaypointDate(departureDate)
+      setLastDepartureDate(departureDate)
+    }
+  }, [watch('departureDate')])
 
   // Fetch autocomplete suggestions
   const fetchSuggestions = async (input: string): Promise<Suggestion[]> => {
@@ -272,23 +340,18 @@ export default function RegistrationForm() {
         setSelectedRouteIndex(0)
       }
 
+      // Chỉ cập nhật tọa độ, không ghi đè tên
       if (data.waypoints && data.waypoints.length >= 2) {
-        setDepartureName(data.waypoints[0].name || watch('departurePoint'))
-        setDestinationName(
-          data.waypoints[data.waypoints.length - 1].name || watch('destination')
-        )
-        setValue(
-          'departurePoint',
-          data.waypoints[0].name || watch('departurePoint')
-        )
-        setValue(
-          'destination',
-          data.waypoints[data.waypoints.length - 1].name || watch('destination')
-        )
-
+        setDepartureName(watch('departurePoint'))
+        setDestinationName(watch('destination'))
         const updatedWaypoints = waypoints.map((wp, index) => ({
           ...wp,
-          name: data.waypoints[index + 1]?.name || wp.name,
+          coordinates: data.waypoints[index + 1]
+            ? {
+                lng: parseFloat(data.waypoints[index + 1].location[0]),
+                lat: parseFloat(data.waypoints[index + 1].location[1]),
+              }
+            : wp.coordinates,
         }))
         setWaypoints(updatedWaypoints)
       }
@@ -327,6 +390,7 @@ export default function RegistrationForm() {
       return
     }
     setIsAddingWaypoint(true)
+    setNewWaypointDate(watch('departureDate')) // Default to departure date
   }
 
   // Cancel adding waypoint
@@ -334,6 +398,7 @@ export default function RegistrationForm() {
     setIsAddingWaypoint(false)
     setNewWaypointQuery('')
     setNewWaypointSuggestions([])
+    setNewWaypointDate(watch('departureDate'))
   }
 
   // Remove waypoint
@@ -343,15 +408,32 @@ export default function RegistrationForm() {
 
   // Select waypoint from suggestions
   const selectWaypoint = (suggestion: Suggestion) => {
-    const newWaypoint = {
+    if (!newWaypointDate) {
+      toast('Lỗi', {
+        description: 'Vui lòng chọn ngày đến cho điểm dừng!',
+        style: { background: '#ff3333', color: '#fff' },
+      })
+      return
+    }
+    const newWaypoint: Waypoint = {
       id: `wp-${Date.now()}`,
       name: suggestion.description,
       coordinates: suggestion.coordinates,
+      estimatedArrivalDate: newWaypointDate,
     }
     setWaypoints([...waypoints, newWaypoint])
     setIsAddingWaypoint(false)
     setNewWaypointQuery('')
     setNewWaypointSuggestions([])
+    setNewWaypointDate(watch('departureDate'))
+  }
+
+  // Update waypoint date with debug logging
+  const updateWaypoint = (id: string, updates: Partial<Waypoint>) => {
+    console.log(`Updating waypoint ${id} with:`, updates)
+    setWaypoints(
+      waypoints.map((wp) => (wp.id === id ? { ...wp, ...updates } : wp))
+    )
   }
 
   // Fetch suggestions for departure
@@ -512,6 +594,60 @@ export default function RegistrationForm() {
       const [endHours, endMinutes] = data.endTime.split(':')
       endDate.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0)
 
+      // Normalize dates to start of day for comparison
+      const normalizedStartDate = startOfDay(new Date(data.departureDate))
+      const normalizedEndDate = startOfDay(new Date(data.endDate))
+
+      // Debug: Log input dates
+      console.log('Form Input Dates:', {
+        departureDate: data.departureDate.toISOString(),
+        departureTime: data.departureTime,
+        endDate: data.endDate.toISOString(),
+        endTime: data.endTime,
+        normalizedStartDate: normalizedStartDate.toISOString(),
+        normalizedEndDate: normalizedEndDate.toISOString(),
+      })
+
+      // Validate waypoint dates
+      for (let i = 0; i < waypoints.length; i++) {
+        const wp = waypoints[i]
+        if (!wp.estimatedArrivalDate) {
+          throw new Error(
+            `Vui lòng chọn ngày đến cho điểm dừng ${wp.name.split(',')[0]}`
+          )
+        }
+        const wpDate = startOfDay(new Date(wp.estimatedArrivalDate))
+        console.log(`Waypoint ${i + 1} (${wp.name}):`, {
+          selectedDate: wp.estimatedArrivalDate.toISOString(),
+          normalizedDate: wpDate.toISOString(),
+        })
+        if (wpDate < normalizedStartDate) {
+          throw new Error(
+            `Ngày đến điểm dừng ${wp.name.split(',')[0]} phải từ ngày đi trở đi`
+          )
+        }
+        if (wpDate > normalizedEndDate) {
+          throw new Error(
+            `Ngày đến điểm dừng ${
+              wp.name.split(',')[0]
+            } phải trước hoặc bằng ngày đến`
+          )
+        }
+        if (i > 0) {
+          const prevWp = waypoints[i - 1]
+          if (prevWp.estimatedArrivalDate) {
+            const prevWpDate = startOfDay(new Date(prevWp.estimatedArrivalDate))
+            if (wpDate < prevWpDate) {
+              throw new Error(
+                `Ngày đến điểm dừng ${
+                  wp.name.split(',')[0]
+                } phải từ ngày điểm dừng trước trở đi`
+              )
+            }
+          }
+        }
+      }
+
       // Construct waypoints from API response
       const apiWaypoints = selectedRoute.waypoints || []
       let cumulativeDistance = 0
@@ -523,22 +659,26 @@ export default function RegistrationForm() {
             lng: departureCoords.lng,
             lat: departureCoords.lat,
           },
+          estimatedArrivalTime: startOfDay(
+            new Date(data.departureDate)
+          ).toISOString(),
         },
         ...waypoints.map((wp, index) => {
           const legDistance = selectedRoute.legs[index]?.distance || 0
           cumulativeDistance += legDistance
+          const wpDate = startOfDay(
+            new Date(wp.estimatedArrivalDate!)
+          ).toISOString()
           return {
             distance: cumulativeDistance,
-            name:
-              wp.name ||
-              apiWaypoints[index + 1]?.name ||
-              `Điểm dừng ${index + 1}`,
+            name: wp.name,
             location: wp.coordinates
               ? { lng: wp.coordinates.lng, lat: wp.coordinates.lat }
               : {
                   lng: apiWaypoints[index + 1]?.location[0] || 0,
                   lat: apiWaypoints[index + 1]?.location[1] || 0,
                 },
+            estimatedArrivalTime: wpDate,
           }
         }),
         {
@@ -548,8 +688,14 @@ export default function RegistrationForm() {
             lng: destinationCoords.lng,
             lat: destinationCoords.lat,
           },
+          estimatedArrivalTime: startOfDay(
+            new Date(data.endDate)
+          ).toISOString(),
         },
       ]
+
+      // Debug: Log routeWaypoints to verify estimatedArrivalTime
+      console.log('Route Waypoints:', JSON.stringify(routeWaypoints, null, 2))
 
       const routeData = {
         name: `${departureName || data.departurePoint} - ${
@@ -564,14 +710,18 @@ export default function RegistrationForm() {
           type: 'LineString',
           coordinates: selectedRoute.geometry.coordinates,
         },
-        distance: selectedRoute.distance / 1000, // Convert meters to kilometers
-        duration: selectedRoute.duration, // In seconds
+        distance: selectedRoute.distance,
+        duration: selectedRoute.duration,
         routeIndex: selectedRouteIndex,
         startTime: startDate.toISOString(),
         endTime: endDate.toISOString(),
         price: data.price,
         seatsAvailable: data.availableSeats,
+        maxPickupDistance: data.maxPickupDistance,
+        isNegotiable: data.isNegotiable,
       }
+
+      console.log('Route Data Sent to API:', JSON.stringify(routeData, null, 2))
 
       await createRouteMutationFn(routeData)
 
@@ -587,12 +737,14 @@ export default function RegistrationForm() {
       reset({
         departurePoint: '',
         destination: '',
-        departureDate: new Date(),
+        departureDate: startOfToday(),
         departureTime: '08:00',
-        endDate: new Date(),
+        endDate: startOfToday(),
         endTime: '12:00',
         availableSeats: 1,
         price: 10000,
+        maxPickupDistance: 5,
+        isNegotiable: false,
       })
       setDepartureQuery('')
       setDestinationQuery('')
@@ -606,12 +758,13 @@ export default function RegistrationForm() {
       setNewWaypointQuery('')
       setNewWaypointSuggestions([])
       setIsAddingWaypoint(false)
+      setNewWaypointDate(startOfToday())
+      setLastDepartureDate(undefined)
     } catch (error: any) {
-      
+      console.error('Submit Error:', error)
       toast('Lỗi', {
         description:
-          error.message ||
-          'Không thể đăng ký tuyến đường. Vui lòng thử lại!',
+          error.message || 'Không thể đăng ký tuyến đường. Vui lòng thử lại!',
         style: { background: '#ff3333', color: '#fff' },
       })
     } finally {
@@ -717,7 +870,7 @@ export default function RegistrationForm() {
                             <CommandGroup className="p-1">
                               {departureSuggestions.map((suggestion) => (
                                 <CommandItem
-                                  key={suggestion.place_id}
+                                  key={`${suggestion.place_id}-${suggestion.description}`}
                                   value={suggestion.description}
                                   onSelect={(value) => {
                                     setValue('departurePoint', value)
@@ -729,18 +882,12 @@ export default function RegistrationForm() {
                                   className="px-3 py-2.5 cursor-pointer rounded-md hover:bg-[var(--accent)] text-[var(--foreground)] aria-selected:bg-[var(--primary)]/10 aria-selected:text-[var(--primary)]"
                                 >
                                   <div className="flex items-start gap-3">
-                                    <div className="mt-0.5 p-1 rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
-                                      <MapPin className="h-3.5 w-3.5" />
+                                    <div className="p-1 rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
+                                      <MapPin className="h-3 w-3" />
                                     </div>
                                     <div>
                                       <p className="text-sm font-medium line-clamp-1">
-                                        {suggestion.description.split(',')[0]}
-                                      </p>
-                                      <p className="text-xs text-[var(--muted-foreground)] line-clamp-1">
-                                        {suggestion.description
-                                          .split(',')
-                                          .slice(1)
-                                          .join(',')}
+                                        {suggestion.description}
                                       </p>
                                     </div>
                                   </div>
@@ -753,19 +900,8 @@ export default function RegistrationForm() {
                     </PopoverContent>
                   </Popover>
                   {errors.departurePoint && (
-                    <p className="text.sm text-[var(--destructive)] mt-1.5 flex items-center gap-1.5">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
+                    <p className="text-sm text-[var(--destructive)] mt-1.5 flex items-center gap-1.5">
+                      <AlertCircle className="h-4 w-4" />
                       {errors.departurePoint.message}
                     </p>
                   )}
@@ -782,32 +918,88 @@ export default function RegistrationForm() {
                   {waypoints.map((waypoint) => (
                     <div
                       key={waypoint.id}
-                      className="flex items-center gap-2 p-3 border border-[var(--border)] rounded-lg"
+                      className="flex flex-col gap-3 p-3 border border-[var(--border)] rounded-lg"
                     >
-                      <div className="flex-1">
-                        <p className="text-sm font-medium line-clamp-1">
-                          {waypoint.name.split(',')[0]}
-                        </p>
-                        <p className="text-xs text-[var(--muted-foreground)] line-clamp-1">
-                          {waypoint.name.split(',').slice(1).join(',')}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium line-clamp-1">
+                            {waypoint.name}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => removeWaypoint(waypoint.id)}
+                          className="h-8 w-8"
+                          aria-label={`Xóa điểm dừng ${waypoint.name}`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        onClick={() => removeWaypoint(waypoint.id)}
-                        className="h-8 w-8"
-                        aria-label={`Xóa điểm dừng`}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-xs font-medium text-[var(--foreground)]">
+                          <CalendarIcon className="w-3 h-3 text-[var(--primary)]" />
+                          Ngày đến điểm dừng
+                        </label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                'w-full justify-start text-left font-normal h-9 pl-3 border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]',
+                                !waypoint.estimatedArrivalDate &&
+                                  'text-[var(--muted-foreground)]',
+                                'hover:border-[var(--ring)] focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]/20'
+                              )}
+                              aria-label={`Chọn ngày đến điểm dừng ${waypoint.name}`}
+                            >
+                              <CalendarIcon className="mr-2 h-3 w-3 text-[var(--muted-foreground)]" />
+                              {waypoint.estimatedArrivalDate
+                                ? format(
+                                    waypoint.estimatedArrivalDate,
+                                    'dd/MM/yyyy',
+                                    { locale: vi }
+                                  )
+                                : 'Chọn ngày'}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 shadow-xl border-[var(--border)] bg-[var(--popover)]">
+                            <Calendar
+                              mode="single"
+                              selected={waypoint.estimatedArrivalDate}
+                              onSelect={(date) => {
+                                if (date) {
+                                  console.log(
+                                    `Selected date for waypoint ${waypoint.id}:`,
+                                    date.toISOString()
+                                  )
+                                  updateWaypoint(waypoint.id, {
+                                    estimatedArrivalDate: date,
+                                  })
+                                }
+                              }}
+                              initialFocus
+                              fromDate={watch('departureDate')}
+                              toDate={watch('endDate')}
+                              locale={vi}
+                              className="border-0"
+                              classNames={{
+                                day_selected:
+                                  'bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)]',
+                                day_today:
+                                  'bg-[var(--accent)] text-[var(--foreground)]',
+                              }}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     </div>
                   ))}
 
                   {/* Form to add new waypoint */}
                   {isAddingWaypoint && (
-                    <div className="space-y-2">
+                    <div className="space-y-2 border border-[var(--border)] rounded-lg p-3">
                       <div className="relative">
                         <Input
                           placeholder="Nhập địa chỉ điểm dừng"
@@ -827,6 +1019,57 @@ export default function RegistrationForm() {
                         >
                           <X className="w-4 h-4 text-[var(--muted-foreground)]" />
                         </Button>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-xs font-medium text-[var(--foreground)]">
+                          <CalendarIcon className="w-3 h-3 text-[var(--primary)]" />
+                          Ngày đến điểm dừng
+                        </label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                'w-full justify-start text-left font-normal h-9 pl-3 border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]',
+                                !newWaypointDate &&
+                                  'text-[var(--muted-foreground)]',
+                                'hover:border-[var(--ring)] focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]/20'
+                              )}
+                              aria-label="Chọn ngày đến điểm dừng mới"
+                            >
+                              <CalendarIcon className="mr-2 h-3 w-3 text-[var(--muted-foreground)]" />
+                              {newWaypointDate
+                                ? format(newWaypointDate, 'dd/MM/yyyy', {
+                                    locale: vi,
+                                  })
+                                : 'Chọn ngày'}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 shadow-xl border-[var(--border)] bg-[var(--popover)]">
+                            <Calendar
+                              mode="single"
+                              selected={newWaypointDate}
+                              onSelect={(date) => {
+                                console.log(
+                                  'Selected date for new waypoint:',
+                                  date?.toISOString()
+                                )
+                                setNewWaypointDate(date)
+                              }}
+                              initialFocus
+                              fromDate={watch('departureDate')}
+                              toDate={watch('endDate')}
+                              locale={vi}
+                              className="border-0"
+                              classNames={{
+                                day_selected:
+                                  'bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)]',
+                                day_today:
+                                  'bg-[var(--accent)] text-[var(--foreground)]',
+                              }}
+                            />
+                          </PopoverContent>
+                        </Popover>
                       </div>
 
                       {/* Display waypoint suggestions */}
@@ -868,24 +1111,18 @@ export default function RegistrationForm() {
                               ) : (
                                 newWaypointSuggestions.map((suggestion) => (
                                   <CommandItem
-                                    key={suggestion.place_id}
+                                    key={`${suggestion.place_id}-${suggestion.description}`}
                                     value={suggestion.description}
                                     onSelect={() => selectWaypoint(suggestion)}
                                     className="px-3 py-2.5 cursor-pointer rounded-md hover:bg-[var(--accent)] text-[var(--foreground)] aria-selected:bg-[var(--primary)]/10 aria-selected:text-[var(--primary)]"
                                   >
                                     <div className="flex items-start gap-3">
-                                      <div className="mt-0.5 p-1 rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
-                                        <MapPin className="h-3.5 w-3.5" />
+                                      <div className="p-1 rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
+                                        <MapPin className="h-3 w-3" />
                                       </div>
                                       <div>
                                         <p className="text-sm font-medium line-clamp-1">
-                                          {suggestion.description.split(',')[0]}
-                                        </p>
-                                        <p className="text-xs text-[var(--muted-foreground)] line-clamp-1">
-                                          {suggestion.description
-                                            .split(',')
-                                            .slice(1)
-                                            .join(',')}
+                                          {suggestion.description}
                                         </p>
                                       </div>
                                     </div>
@@ -993,7 +1230,7 @@ export default function RegistrationForm() {
                             <CommandGroup className="p-1">
                               {destinationSuggestions.map((suggestion) => (
                                 <CommandItem
-                                  key={suggestion.place_id}
+                                  key={`${suggestion.place_id}-${suggestion.description}`}
                                   value={suggestion.description}
                                   onSelect={(value) => {
                                     setValue('destination', value)
@@ -1005,18 +1242,12 @@ export default function RegistrationForm() {
                                   className="px-3 py-2.5 cursor-pointer rounded-md hover:bg-[var(--accent)] text-[var(--foreground)] aria-selected:bg-[var(--primary)]/10 aria-selected:text-[var(--primary)]"
                                 >
                                   <div className="flex items-start gap-3">
-                                    <div className="mt-0.5 p-1 rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
-                                      <MapPin className="h-3.5 w-3.5" />
+                                    <div className="p-1 rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
+                                      <MapPin className="h-3 w-3" />
                                     </div>
                                     <div>
                                       <p className="text-sm font-medium line-clamp-1">
-                                        {suggestion.description.split(',')[0]}
-                                      </p>
-                                      <p className="text-xs text-[var(--muted-foreground)] line-clamp-1">
-                                        {suggestion.description
-                                          .split(',')
-                                          .slice(1)
-                                          .join(',')}
+                                        {suggestion.description}
                                       </p>
                                     </div>
                                   </div>
@@ -1030,18 +1261,7 @@ export default function RegistrationForm() {
                   </Popover>
                   {errors.destination && (
                     <p className="text-sm text-[var(--destructive)] mt-1.5 flex items-center gap-1.5">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
+                      <AlertCircle className="h-4 w-4" />
                       {errors.destination.message}
                     </p>
                   )}
@@ -1095,18 +1315,7 @@ export default function RegistrationForm() {
                     </Popover>
                     {errors.departureDate && (
                       <p className="text-sm text-[var(--destructive)] mt-1.5 flex items-center gap-1.5">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
+                        <AlertCircle className="h-4 w-4" />
                         {errors.departureDate.message}
                       </p>
                     )}
@@ -1128,18 +1337,7 @@ export default function RegistrationForm() {
                     </div>
                     {errors.departureTime && (
                       <p className="text-sm text-[var(--destructive)] mt-1.5 flex items-center gap-1.5">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
+                        <AlertCircle className="h-4 w-4" />
                         {errors.departureTime.message}
                       </p>
                     )}
@@ -1178,7 +1376,7 @@ export default function RegistrationForm() {
                           selected={watch('endDate')}
                           onSelect={(date) => date && setValue('endDate', date)}
                           initialFocus
-                          fromDate={startOfToday()}
+                          fromDate={watch('departureDate')}
                           locale={vi}
                           className="border-0"
                           classNames={{
@@ -1192,18 +1390,7 @@ export default function RegistrationForm() {
                     </Popover>
                     {errors.endDate && (
                       <p className="text-sm text-[var(--destructive)] mt-1.5 flex items-center gap-1.5">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
+                        <AlertCircle className="h-4 w-4" />
                         {errors.endDate.message}
                       </p>
                     )}
@@ -1226,26 +1413,15 @@ export default function RegistrationForm() {
                     </div>
                     {errors.endTime && (
                       <p className="text-sm text-[var(--destructive)] mt-1.5 flex items-center gap-1.5">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
+                        <AlertCircle className="h-4 w-4" />
                         {errors.endTime.message}
                       </p>
                     )}
                   </div>
                 </div>
 
-                {/* Available Seats and Price */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Available Seats, Price, Max Pickup Distance, and isNegotiable */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
                   <div className="space-y-3">
                     <label className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
                       <Users className="w-4 h-4 text-[var(--primary)]" />
@@ -1265,18 +1441,7 @@ export default function RegistrationForm() {
                     </div>
                     {errors.availableSeats && (
                       <p className="text-sm text-[var(--destructive)] mt-1.5 flex items-center gap-1.5">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
+                        <AlertCircle className="h-4 w-4" />
                         {errors.availableSeats.message}
                       </p>
                     )}
@@ -1284,19 +1449,7 @@ export default function RegistrationForm() {
 
                   <div className="space-y-3">
                     <label className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="w-4 h-4 text-[var(--primary)]"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <line x1="12" y1="1" x2="12" y2="23"></line>
-                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                      </svg>
+                      <DollarSign className="w-4 h-4 text-[var(--primary)]" />
                       Giá tiền (VND)
                       <span className="text-[var(--destructive)]">*</span>
                     </label>
@@ -1308,25 +1461,78 @@ export default function RegistrationForm() {
                         className="h-11 pl-10 rounded-lg border-[var(--border)] text-[var(--foreground)] hover:border-[var(--ring)] focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]/20"
                         aria-label="Giá tiền"
                       />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]">
-                        ₫
-                      </span>
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)]" />
                     </div>
                     {errors.price && (
                       <p className="text-sm text-[var(--destructive)] mt-1.5 flex items-center gap-1.5">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
+                        <AlertCircle className="h-4 w-4" />
                         {errors.price.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
+                      <Ruler className="w-4 h-4 text-[var(--primary)]" />
+                      Khoảng cách đón tối đa (m)
+                      <span className="text-[var(--destructive)]">*</span>
+                    </label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        min="1"
+                        max="10000"
+                        placeholder="Nhập khoảng cách"
+                        {...register('maxPickupDistance', {
+                          valueAsNumber: true,
+                        })}
+                        className="h-11 pl-10 rounded-lg border-[var(--border)] text-[var(--foreground)] hover:border-[var(--ring)] focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]/20"
+                        aria-label="Khoảng cách đón tối đa"
+                      />
+                      <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)]" />
+                    </div>
+                    {errors.maxPickupDistance && (
+                      <p className="text-sm text-[var(--destructive)] mt-1.5 flex items-center gap-1.5">
+                        <AlertCircle className="h-4 w-4" />
+                        {errors.maxPickupDistance.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
+                      <DollarSign className="w-4 h-4 text-[var(--primary)]" />
+                      Thương lượng giá
+                      <span className="text-[var(--destructive)]">*</span>
+                    </label>
+                    <Select
+                      onValueChange={(value) =>
+                        setValue('isNegotiable', value === 'true')
+                      }
+                      defaultValue={watch('isNegotiable') ? 'true' : 'false'}
+                    >
+                      <SelectTrigger className="w-full py-5 rounded-lg border-[var(--border)] text-[var(--foreground)] hover:border-[var(--ring)] focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]/20">
+                        <SelectValue placeholder="Chọn trạng thái" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-[var(--radius-md)] border-[var(--border)] bg-[var(--card)]">
+                        <SelectItem
+                          value="true"
+                          className="text-[var(--foreground)]"
+                        >
+                          Giá thương lượng
+                        </SelectItem>
+                        <SelectItem
+                          value="false"
+                          className="text-[var(--foreground)]"
+                        >
+                          Không thương lượng
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {errors.isNegotiable && (
+                      <p className="text-sm text-[var(--destructive)] mt-1.5 flex items-center gap-1.5">
+                        <AlertCircle className="h-4 w-4" />
+                        {errors.isNegotiable.message}
                       </p>
                     )}
                   </div>
@@ -1341,7 +1547,9 @@ export default function RegistrationForm() {
                       route.length === 0 ||
                       !departureCoords ||
                       !destinationCoords ||
-                      waypoints.some((wp) => !wp.coordinates)
+                      waypoints.some(
+                        (wp) => !wp.coordinates || !wp.estimatedArrivalDate
+                      )
                     }
                     className="w-full h-12 text-base font-medium bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-[var(--primary-foreground)] shadow-md transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >

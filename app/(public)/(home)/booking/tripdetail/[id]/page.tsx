@@ -19,6 +19,7 @@ import {
   MessageCircle,
   Map as MapIcon,
   X,
+  Palette,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -49,16 +50,6 @@ const TripDetails = () => {
   const { user } = useAuthContext()
   const userId = user?._id
 
-  let passengers = 1
-  try {
-    const searchForm = JSON.parse(
-      localStorage.getItem('searchTripForm') || '{}'
-    )
-    passengers = Number(searchForm.passengers) || 1
-  } catch (error) {
-    console.warn('Failed to parse searchTripForm:', error)
-  }
-
   const formatTime = (isoString?: string): string => {
     if (!isoString) {
       console.warn('formatTime: isoString is undefined or null')
@@ -81,39 +72,44 @@ const TripDetails = () => {
       return 'N/A'
     }
   }
-
-  const calculateArrivalTime = (
-    startTime?: string,
-    duration?: number
+  const formatDate = (isoString?: string): string => {
+    if (!isoString) {
+      console.warn('formatTime: isoString is undefined or null')
+      return 'N/A'
+    }
+      const date = new Date(isoString)
+      return format(date, 'dd/MM/yyyy')
+    
+  }
+  const calculateWaypointTime = (
+    startTime: string | undefined,
+    cumulativeDistance: number
   ): string => {
-    if (!startTime || duration === undefined) {
-      console.warn('calculateArrivalTime: Missing startTime or duration', {
+    if (
+      !startTime ||
+      !isValid(new Date(startTime)) ||
+      isNaN(cumulativeDistance)
+    ) {
+      console.warn('calculateWaypointTime: Invalid startTime or distance', {
         startTime,
-        duration,
+        cumulativeDistance,
       })
       return 'N/A'
     }
     try {
+      const speed = 16.67 // 60 km/h = 16.67 m/s
+      const travelTimeSeconds = cumulativeDistance / speed
       const startDate = new Date(startTime)
-      if (!isValid(startDate)) {
-        console.warn('calculateArrivalTime: Invalid startDate:', startTime)
-        return 'N/A'
-      }
-      const arrivalDate = addSeconds(startDate, duration)
-      return format(arrivalDate, 'dd/MM/yyyy HH:mm')
+      const arrivalDate = addSeconds(startDate, Math.round(travelTimeSeconds))
+      return formatTime(arrivalDate.toISOString())
     } catch (error) {
-      console.error(
-        'calculateArrivalTime: Error calculating arrival time:',
-        error,
-        { startTime, duration }
-      )
+      console.error('calculateWaypointTime: Error calculating time:', error)
       return 'N/A'
     }
   }
 
   const formatAddress = (address: string): string => {
-    const parts = address.split(',').map((part) => part.trim())
-    return parts.slice(0, -1).join(', ').trim() || address
+    return address.trim() || 'Không xác định'
   }
 
   const getInitials = (name: string): string => {
@@ -235,7 +231,7 @@ const TripDetails = () => {
       : 'Không xác định'
   )
   const departureTime = formatTime(trip.startTime)
-  const arrivalTime = calculateArrivalTime(trip.startTime, trip.duration)
+  const arrivalTime = formatTime(trip.endTime)
   const driverName = trip.userId?.name || 'Không xác định'
   const driverAvatar = trip.userId?.avatar || '/images/default-avatar.jpg'
   const driverInitials = getInitials(driverName)
@@ -244,6 +240,14 @@ const TripDetails = () => {
     ? new Date(trip.userId.createdAt).getFullYear()
     : 'Chưa xác định'
   const vehicle = trip.userId?.vehicles?.[0] || {}
+  const isNegotiable = trip.isNegotiable ?? false
+  const price = trip.price
+    ? new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND',
+      }).format(trip.price)
+    : 'Chưa cung cấp'
+  const passengers = trip.passengerCount
 
   // Map setup
   if (!trip.waypoints || trip.waypoints.length === 0) {
@@ -296,27 +300,36 @@ const TripDetails = () => {
   }
   const centerLng = (bounds.minLng + bounds.maxLng) / 2
   const centerLat = (bounds.minLat + bounds.maxLat) / 2
-  const latDiff = bounds.maxLat - bounds.minLat // Fixed: Corrected calculation
-  const lngDiff = bounds.maxLng - bounds.minLng // Fixed: Corrected calculation
+  const latDiff = bounds.maxLat - bounds.minLat
+  const lngDiff = bounds.maxLng - bounds.minLng
   const zoom = Math.min(13, Math.log2(360 / Math.max(latDiff, lngDiff)) - 1)
   const initialViewState = {
-    longitude: centerLng, // Fixed: Use centerLng
-    latitude: centerLat, // Fixed: Use centerLat
+    longitude: centerLng,
+    latitude: centerLat,
     zoom,
   }
 
-  const fallbackRouteSteps = safeWaypoints.map((wp: any, index: number) => ({
-    maneuver: {
-      instruction:
-        index === 0
-          ? `Điểm đầu: ${wp.name}`
-          : index === safeWaypoints.length - 1
-          ? `Điểm cuối: ${wp.name}`
-          : `Điểm dừng: ${wp.name}`,
-    },
-    distance: wp.distance || 0,
-    name: wp.name,
-  }))
+  const fallbackRouteSteps = safeWaypoints.map((wp: any, index: number) => {
+    const cumulativeDistance = safeWaypoints
+      .slice(0, index + 1)
+      .reduce((sum: number, waypoint: any) => sum + (waypoint.distance || 0), 0)
+    return {
+      maneuver: {
+        instruction:
+          index === 0
+            ? `Điểm đầu: ${wp.name}`
+            : index === safeWaypoints.length - 1
+            ? `Điểm cuối: ${wp.name}`
+            : `Điểm dừng: ${wp.name}`,
+      },
+      distance: wp.distance || 0,
+      name: wp.name,
+      estimatedArrivalTime: calculateWaypointTime(
+        trip.startTime,
+        cumulativeDistance
+      ),
+    }
+  })
 
   return (
     <div className="mx-auto p-4 md:p-6 max-w-5xl space-y-6 bg-[var(--background)]">
@@ -417,8 +430,7 @@ const TripDetails = () => {
                               </div>
                               <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap px-2 py-1 bg-white rounded-md shadow-sm text-sm font-medium">
                                 Điểm đầu:{' '}
-                                {safeWaypoints[0]?.name.split(',')[0] ||
-                                  'Không xác định'}
+                                {safeWaypoints[0]?.name || 'Không xác định'}
                               </div>
                             </div>
                           </Marker>
@@ -435,9 +447,8 @@ const TripDetails = () => {
                               </div>
                               <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap px-2 py-1 bg-white rounded-md shadow-sm text-sm font-medium">
                                 Điểm cuối:{' '}
-                                {safeWaypoints[
-                                  safeWaypoints.length - 1
-                                ]?.name.split(',')[0] || 'Không xác định'}
+                                {safeWaypoints[safeWaypoints.length - 1]
+                                  ?.name || 'Không xác định'}
                               </div>
                             </div>
                           </Marker>
@@ -472,7 +483,7 @@ const TripDetails = () => {
                                       </span>
                                     </div>
                                     <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap px-2 py-1 bg-white rounded-md shadow-sm text-sm font-medium">
-                                      Điểm dừng: {wp.name.split(',')[0]}
+                                      Điểm dừng: {wp.name}
                                     </div>
                                   </div>
                                 </Marker>
@@ -543,6 +554,9 @@ const TripDetails = () => {
                                           {(step.distance / 1000).toFixed(2)} km
                                         </p>
                                       )}
+                                      <p className="text-muted-foreground mt-1">
+                                        Ngày đến: {step.estimatedArrivalTime}
+                                      </p>
                                     </div>
                                   </li>
                                 )
@@ -594,6 +608,76 @@ const TripDetails = () => {
                     <span>Dự kiến: {arrivalTime}</span>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+          {safeWaypoints.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4">
+                Các điểm dừng
+              </h3>
+              <div className="relative pl-8">
+                <div className="absolute left-2 top-2 bottom-2 w-px bg-primary/20"></div>
+                {safeWaypoints.slice(1, safeWaypoints.length - 1).map((wp: any, index: number) => (
+                  <div key={index} className="relative mb-4">
+                    <div className="absolute left-[-1.5rem] top-1 w-3 h-3 rounded-full bg-primary border-2 border-white shadow-sm"></div>
+                    <div className="flex items-start gap-3 p-4 bg-[var(--accent)] rounded-[var(--radius-md)]">
+                      <div>
+                        <p className="font-medium text-[var(--muted-foreground)] text-sm">
+                          {`ĐIỂM DỪNG ${index + 1}`}
+                        </p>
+                        <p className="font-semibold text-[var(--foreground)]">
+                          {wp.name}
+                        </p>
+
+                        <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                          Ngày đến: {formatDate(wp.estimatedArrivalTime)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="flex items-start gap-3 p-4 bg-[var(--accent)] rounded-[var(--radius-md)]">
+              <div className="w-10 h-10 rounded-full bg-[var(--chart-2)] flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5 text-[var(--primary-foreground)]" />
+              </div>
+              <div>
+                <p className="font-medium text-[var(--muted-foreground)] text-sm">
+                  SỐ KHÁCH
+                </p>
+                <p className="font-semibold text-[var(--foreground)]">
+                  {passengers} khách
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-4 bg-[var(--accent)] rounded-[var(--radius-md)]">
+              <div className="w-10 h-10 rounded-full bg-[var(--chart-3)] flex items-center justify-center shrink-0">
+                <MessageSquare className="w-5 h-5 text-[var(--primary-foreground)]" />
+              </div>
+              <div>
+                <p className="font-medium text-[var(--muted-foreground)] text-sm">
+                  GIÁ CÓ THƯƠNG LƯỢNG
+                </p>
+                <p className="font-semibold text-[var(--foreground)]">
+                  {isNegotiable ? 'Có' : 'Không'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-4 bg-[var(--accent)] rounded-[var(--radius-md)]">
+              <div className="w-10 h-10 rounded-full bg-[var(--chart-4)] flex items-center justify-center shrink-0">
+                <Car className="w-5 h-5 text-[var(--primary-foreground)]" />
+              </div>
+              <div>
+                <p className="font-medium text-[var(--muted-foreground)] text-sm">
+                  GIÁ CHUYẾN ĐI
+                </p>
+                <p className="font-semibold text-[var(--foreground)]">
+                  {price}/ghế
+                </p>
               </div>
             </div>
           </div>
@@ -759,25 +843,7 @@ const TripDetails = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-[var(--muted-foreground)]"
-                >
-                  <circle cx="9" cy="12" r="1" />
-                  <circle cx="9" cy="5" r="1" />
-                  <circle cx="9" cy="19" r="1" />
-                  <circle cx="15" cy="12" r="1" />
-                  <circle cx="15" cy="5" r="1" />
-                  <circle cx="15" cy="19" r="1" />
-                </svg>
+                <Palette className="w-5 h-5 text-[var(--muted-foreground)]" />
                 <div>
                   <p className="text-sm text-[var(--muted-foreground)]">
                     Màu sắc

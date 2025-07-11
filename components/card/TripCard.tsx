@@ -3,9 +3,17 @@
 import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { Star, Clock, Map as MapIcon, X } from 'lucide-react'
-import { MdArrowRight } from 'react-icons/md'
-import { addSeconds, format, isValid } from 'date-fns'
+import {
+  Star,
+  Clock,
+  Map as MapIcon,
+  X,
+  MapPin,
+  Users,
+  Tag,
+  ArrowRight,
+} from 'lucide-react'
+import { format, isValid } from 'date-fns'
 import Image from 'next/image'
 import {
   Dialog,
@@ -17,7 +25,9 @@ import {
 import { Button } from '@/components/ui/button'
 import Map, { Source, Layer, Marker } from 'react-map-gl/mapbox'
 import 'mapbox-gl/dist/mapbox-gl.css'
-import { useState } from 'react'
+import { useContext, useMemo, useState } from 'react'
+import { point, lineString, pointToLineDistance } from '@turf/turf'
+import { UserLocationContext } from '@/hooks/use-user-location-context'
 
 interface TripCardProps {
   _id: string
@@ -31,16 +41,19 @@ interface TripCardProps {
     name: string
     distance: number
     coordinates: number[]
+    estimatedArrivalTime?: string
     _id: string
   }[]
   distance: number
   duration: number
   frequency: string
   startTime: string
+  endTime: string
   seatsAvailable: number
   price: number
   status: string
   routeIndex: number
+  passengerCount: number
   startPoint: {
     type: 'Point'
     coordinates: [number, number]
@@ -53,6 +66,8 @@ interface TripCardProps {
     type: 'LineString'
     coordinates: [number, number][]
   }
+  isNegotiable: boolean
+  maxPickupDistance:number
 }
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
@@ -67,17 +82,11 @@ const formatTime = (isoString?: string): string => {
   }
 }
 
-const calculateArrivalTime = (
-  startTime?: string,
-  duration?: number
-): string => {
-  if (!startTime || duration === undefined) return 'N/A'
+const formatDate = (isoString?: string): string => {
+  if (!isoString) return 'N/A'
   try {
-    const startDate = new Date(startTime)
-    const arrivalDate = addSeconds(startDate, duration)
-    return isValid(arrivalDate)
-      ? format(arrivalDate, 'HH:mm - dd/MM/yyyy')
-      : 'N/A'
+    const date = new Date(isoString)
+    return isValid(date) ? format(date, 'dd/MM/yyyy') : 'N/A'
   } catch (error) {
     return 'N/A'
   }
@@ -134,19 +143,36 @@ export default function TripCard(trip: TripCardProps) {
       ? trip.waypoints[trip.waypoints.length - 1]?.name || 'Không xác định'
       : 'Không xác định'
   )
+  const isNegotiable = trip.isNegotiable
+  const countcustomer = trip.passengerCount
   const departureTime = formatTime(trip.startTime)
-  const arrivalTime = calculateArrivalTime(trip.startTime, trip.duration)
+  const arrivalTime = formatTime(trip.endTime)
   const driverName = trip.userId.name
   const driverAvatar = trip.userId.avatar
   const driverInitials = getInitials(driverName)
   const driverRating = trip.userId.averageRating || 0
   const isFull = trip.seatsAvailable === 0
-  const formattedPrice = formatPrice(trip.price) // Thêm định dạng giá tiền
+  const formattedPrice = formatPrice(trip.price)
+  const userLocationContext = useContext(UserLocationContext)
+  const userLocation = userLocationContext?.userLocation
+  const [showMap, setShowMap] = useState(false)
+  const maxdistance = trip.maxPickupDistance
+  const departure = JSON.parse(localStorage.getItem('searchTripForm') || '{}')
+  const userDistanceToRoute = useMemo(() => {
+    if (departure.pickupCoords && trip.path?.coordinates?.length > 0) {
+      return pointToLineDistance(
+        point([departure.pickupCoords.lng, departure.pickupCoords.lat]),
+        lineString(trip.path.coordinates),
+        { units: 'kilometers' }
+      )
+    }
+    return null
+  }, [departure.pickupCoords, trip.path?.coordinates])
 
-  // Validate data
-  if (!trip.waypoints || trip.waypoints.length === 0) {
-    return <></>
-  }
+  // Filter intermediate waypoints (exclude first and last)
+  const intermediateWaypoints = trip.waypoints.filter(
+    (_, index) => index !== 0 && index !== trip.waypoints.length - 1
+  )
 
   if (
     !trip.startPoint?.coordinates ||
@@ -154,16 +180,10 @@ export default function TripCard(trip: TripCardProps) {
     !trip.path?.coordinates
   ) {
     return (
-      <Card
-        className="border rounded-lg p-4"
-        style={{
-          borderColor: 'var(--border)',
-          backgroundColor: 'var(--muted)',
-        }}
-      >
-        <p style={{ color: 'var(--destructive)' }}>
-          Lỗi: Dữ liệu chuyến đi không hợp lệ
-        </p>
+      <Card className="border border-gray-200 rounded-lg shadow-sm">
+        <CardContent className="p-4">
+          <p className="text-red-500">Lỗi: Dữ liệu chuyến đi không hợp lệ</p>
+        </CardContent>
       </Card>
     )
   }
@@ -231,214 +251,207 @@ export default function TripCard(trip: TripCardProps) {
 
   return (
     <Card
-      className={`border rounded-lg transition-all hover:shadow-md ${
-        isFull ? 'opacity-80' : ''
+      className={`rounded-lg shadow-sm transition-all hover:shadow-md border ${
+        isFull ? 'opacity-80 grayscale-[20%]' : ''
       }`}
-      style={{
-        borderColor: 'var(--border)',
-        backgroundColor: isFull ? 'var(--muted)' : 'var(--card)',
-      }}
     >
-      <CardContent
-        className="px-4 py-4"
-        style={{ color: 'var(--cardForeground)' }}
-      >
+      <CardContent className="p-4 py-0.5">
         {/* Main content */}
-        <div className="flex flex-row sm:flex-row gap-4">
-          {/* Left Section - Pickup and Driver */}
-          <div className="flex-1 space-y-3">
-            <div>
-              <h3
-                className="text-lg font-semibold line-clamp-1"
-                style={{ color: 'var(--foreground)' }}
-              >
-                {pickupAddress}
-              </h3>
-              <div
-                className="flex items-center mt-1"
-                style={{ color: 'var(--primary)' }}
-              >
-                <Clock className="w-4 h-4 mr-1" />
-                <span className="text-sm font-medium">{departureTime}</span>
+        <div className="flex flex-col gap-4">
+          {/* Route Information */}
+          <div className="flex items-start gap-3">
+            {/* Pickup Point */}
+            <div className="flex-1">
+              <div className="flex items-start gap-2">
+                <div className="mt-1 w-3 h-3 rounded-full bg-blue-500 flex-shrink-0"></div>
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 line-clamp-2">
+                    {pickupAddress}
+                  </h3>
+                  <div className="flex items-center mt-1 text-blue-600">
+                    <Clock className="w-3 h-3 mr-1" />
+                    <span className="text-xs font-medium">{departureTime}</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <Avatar
-                className="w-10 h-10 border-2 shadow"
-                style={{ borderColor: 'var(--card)' }}
-              >
-                {driverAvatar ? (
-                  <Image
-                    src={driverAvatar}
-                    width={40}
-                    height={40}
-                    alt="Avatar"
-                    className="rounded-full object-cover"
-                  />
-                ) : (
-                  <AvatarFallback
-                    style={{
-                      backgroundColor: 'var(--primary)',
-                      color: 'var(--primaryForeground)',
-                    }}
-                  >
-                    {driverInitials}
-                  </AvatarFallback>
-                )}
-              </Avatar>
-              <div>
-                <p
-                  className="font-medium"
-                  style={{ color: 'var(--foreground)' }}
-                >
-                  {driverName}
-                </p>
-                <div className="flex items-center">
-                  <Star className="fill-yellow-400 text-yellow-400 w-4 h-4" />
-                  <span
-                    className="text-sm ml-1 font-medium"
-                    style={{ color: 'var(--mutedForeground)' }}
-                  >
-                    {driverRating.toFixed(1)}
-                  </span>
+            {/* Arrow */}
+            <div className="flex items-center px-1">
+              <ArrowRight className="w-4 h-4 text-gray-400" />
+            </div>
+
+            {/* Dropoff Point */}
+            <div className="flex-1">
+              <div className="flex items-start gap-2">
+                <div className="mt-1 w-3 h-3 rounded-full bg-red-500 flex-shrink-0"></div>
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 line-clamp-2">
+                    {dropoffAddress}
+                  </h3>
+                  <div className="flex items-center mt-1 text-blue-600">
+                    <Clock className="w-3 h-3 mr-1" />
+                    <span className="text-xs font-medium">{arrivalTime}</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Middle Section - Arrow */}
-          <div className="hidden sm:flex items-center justify-center px-2">
-            <MdArrowRight
-              className="w-6 h-6"
-              style={{ color: 'var(--mutedForeground)' }}
-            />
-          </div>
+          {/* Intermediate Waypoints */}
+          {intermediateWaypoints.length > 0 && (
+            <div className="ml-5 pl-3 border-l-2 border-gray-200 space-y-2">
+              {intermediateWaypoints.map((wp) => (
+                <div key={wp._id} className="flex items-start gap-2">
+                  <MapPin className="w-3 h-3 mt-1 text-yellow-500 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-gray-700 line-clamp-1">
+                      {formatAddress(wp.name)}
+                    </p>
+                    {wp.estimatedArrivalTime && (
+                      <p className="text-xs text-gray-500">
+                        {formatDate(wp.estimatedArrivalTime)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
-          {/* Right Section - Dropoff */}
-          <div className="flex-1">
-            <div className="text-right">
-              <h3
-                className="text-lg font-semibold line-clamp-1"
-                style={{ color: 'var(--foreground)' }}
-              >
-                {dropoffAddress}
-              </h3>
-              <div
-                className="flex items-center justify-end mt-1"
-                style={{ color: 'var(--primary)' }}
-              >
-                <Clock className="w-4 h-4 mr-1" />
-                <span className="text-sm font-medium">{arrivalTime}</span>
+          {/* Driver Information */}
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+            <Avatar className="w-10 h-10 border-2 border-white shadow">
+              {driverAvatar ? (
+                <Image
+                  src={driverAvatar}
+                  width={40}
+                  height={40}
+                  alt="Avatar"
+                  className="rounded-full object-cover"
+                />
+              ) : (
+                <AvatarFallback className="bg-blue-600 text-white">
+                  {driverInitials}
+                </AvatarFallback>
+              )}
+            </Avatar>
+            <div>
+              <p className="font-medium text-gray-900">{driverName}</p>
+              <div className="flex items-center">
+                <Star className="fill-yellow-400 text-yellow-400 w-3 h-3" />
+                <span className="text-xs ml-1 font-medium text-gray-600">
+                  {driverRating.toFixed(1)}
+                </span>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Divider */}
-        <hr className="my-4" style={{ borderColor: 'var(--border)' }} />
+          {/* Trip Details */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            <div
+              className={`flex items-center gap-2 px-3 py-2 rounded-md ${
+                isFull ? 'bg-red-50' : 'bg-blue-50'
+              }`}
+            >
+              <Users
+                className={`w-4 h-4 ${
+                  isFull ? 'text-red-600' : 'text-blue-600'
+                }`}
+              />
+              <span className="text-sm font-medium text-gray-700">
+                {isFull ? 'Hết chỗ' : `${trip.seatsAvailable} chỗ trống`}
+              </span>
+            </div>
 
-        {/* Bottom Action Buttons */}
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-medium`}
-              style={{
-                backgroundColor: isFull
-                  ? 'var(--destructive)'
-                  : trip.seatsAvailable > 2
-                  ? 'var(--accent)'
-                  : 'var(--accent)',
-                color: isFull
-                  ? 'var(--destructiveForeground)'
-                  : trip.seatsAvailable > 2
-                  ? 'var(--accentForeground)'
-                  : 'var(--accentForeground)',
-              }}
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-md">
+              <Tag className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-medium text-gray-700">
+                {formattedPrice}/ghế
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-md">
+              <MapPin className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-medium text-gray-700">
+                Cách điểm bạn đặt{' '}
+                {userDistanceToRoute !== null
+                  ? userDistanceToRoute < 1
+                    ? `${(userDistanceToRoute * 1000).toFixed(0)} m`
+                    : `${userDistanceToRoute.toFixed(2)} km`
+                  : 'N/A'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-md">
+              <Users className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-medium text-gray-700">
+                {countcustomer} hành khách
+              </span>
+            </div>
+
+            <div
+              className={`flex items-center gap-2 px-3 py-2 rounded-md ${
+                isNegotiable ? 'bg-green-50' : 'bg-gray-100'
+              }`}
             >
-              {isFull ? 'Hết chỗ' : `Còn ${trip.seatsAvailable} chỗ`}
-            </span>
-            <span
-              className="px-3 py-1 rounded-full text-xs font-medium"
-              style={{
-                backgroundColor: 'var(--primary)',
-                color: 'var(--primaryForeground)',
-              }}
-            >
-              {formattedPrice} / ghế
-            </span>
+              <Tag
+                className={`w-4 h-4 ${
+                  isNegotiable ? 'text-green-600' : 'text-gray-600'
+                }`}
+              />
+              <span className="text-sm font-medium text-gray-700">
+                {isNegotiable ? 'Có thể thương lượng' : 'Giá cố định'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-md">
+              <MapPin className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-medium text-gray-700">
+                Khoảng cách tối đa có thể đón: {maxdistance/1000} km
+              </span>
+            </div>
           </div>
 
-          <div className="flex gap-2">
-            <Dialog>
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-2 mt-2">
+            <Dialog
+              onOpenChange={(open) => {
+                if (!open) setShowMap(false)
+              }}
+            >
               <DialogTrigger asChild>
                 <Button
                   variant="outline"
-                  className="flex items-center gap-2"
-                  style={{
-                    color: 'var(--foreground)',
-                    borderColor: 'var(--border)',
-                  }}
+                  className="flex-1 flex items-center gap-2 border-gray-300"
+                  onClick={() => setShowMap(true)}
                 >
                   <MapIcon className="w-4 h-4" />
                   <span>Xem bản đồ</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent
-                className="p-0 w-[1200px] max-w-[95vw] h-[90vh] rounded-lg overflow-hidden"
-                style={{
-                  backgroundColor: 'var(--background)',
-                  borderColor: 'var(--border)',
-                  color: 'var(--foreground)',
-                }}
-              >
+
+              <DialogContent className="p-0 w-full max-w-[95vw] h-[90vh] rounded-lg overflow-hidden">
                 <div className="relative flex flex-col h-full">
-                  {/* Header */}
-                  <div
-                    className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b"
-                    style={{
-                      backgroundColor: 'var(--card)',
-                      borderColor: 'var(--border)',
-                    }}
-                  >
+                  <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b bg-white">
                     <DialogTitle className="text-xl font-semibold">
-                      <div
-                        className="flex items-center gap-2"
-                        style={{ color: 'var(--foreground)' }}
-                      >
-                        <MapIcon
-                          className="w-5 h-5"
-                          style={{ color: 'var(--primary)' }}
-                        />
+                      <div className="flex items-center gap-2 text-gray-900">
+                        <MapIcon className="w-5 h-5 text-blue-600" />
                         <span>Tuyến đường: {trip.name}</span>
                       </div>
                     </DialogTitle>
                     <div className="flex items-center gap-2">
-                      <div
-                        className="flex items-center gap-1 px-3 py-1 rounded-full text-sm"
-                        style={{
-                          backgroundColor: 'var(--primary)',
-                          color: 'var(--primaryForeground)',
-                        }}
-                      >
+                      <div className="flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800">
                         <Clock className="w-4 h-4" />
                         <span>{(trip.duration / 60 / 60).toFixed(1)} giờ</span>
                       </div>
-                      <div
-                        className="flex items-center gap-1 px-3 py-1 rounded-full text-sm"
-                        style={{
-                          backgroundColor: 'var(--primary)',
-                          color: 'var(--primaryForeground)',
-                        }}
-                      >
+                      <div className="flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800">
                         <span>{(trip.distance / 1000).toFixed(1)} km</span>
                       </div>
                       <DialogClose asChild>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="hover:text-foreground"
-                          style={{ color: 'var(--mutedForeground)' }}
+                          className="hover:text-gray-900 text-gray-500"
                           aria-label="Đóng dialog"
                         >
                           <X className="w-5 h-5" />
@@ -447,31 +460,11 @@ export default function TripCard(trip: TripCardProps) {
                     </div>
                   </div>
 
-                  {/* Content */}
                   <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
-                    {/* Map - 2/3 width */}
                     <div className="relative h-[60vh] md:h-full w-full md:w-2/3">
-                      {safeWaypoints.filter((wp) => wp.hasValidCoords)
-                        .length === 0 && (
-                        <div
-                          className="absolute top-0 left-0 right-0 p-2 text-center z-10"
-                          style={{
-                            backgroundColor: 'var(--accent)',
-                            color: 'var(--accentForeground)',
-                          }}
-                        >
-                          Không có điểm dừng hợp lệ để hiển thị
-                        </div>
-                      )}
-                      {!MAPBOX_TOKEN ? (
-                        <div
-                          className="flex items-center justify-center h-full"
-                          style={{
-                            backgroundColor: 'var(--muted)',
-                            color: 'var(--destructive)',
-                          }}
-                        >
-                          Lỗi: Không tìm thấy Mapbox token
+                      {!showMap ? (
+                        <div className="flex items-center justify-center h-full bg-gray-100 text-gray-500">
+                          Đang chuẩn bị bản đồ...
                         </div>
                       ) : (
                         <Map
@@ -492,7 +485,30 @@ export default function TripCard(trip: TripCardProps) {
                               }}
                             />
                           </Source>
-
+                          {departure.pickupCoords && (
+                            <Marker
+                              longitude={departure.pickupCoords.lng}
+                              latitude={departure.pickupCoords.lat}
+                              anchor="bottom"
+                            >
+                              <div className="relative">
+                                <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-md"></div>
+                                <div className="absolute inset-0 animate-ping bg-blue-500 rounded-full opacity-75"></div>
+                              </div>
+                            </Marker>
+                          )}
+                          {userLocation && (
+                            <Marker
+                              longitude={userLocation.lng}
+                              latitude={userLocation.lat}
+                              anchor="bottom"
+                            >
+                              <div className="relative">
+                                <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-md"></div>
+                                <div className="absolute inset-0 animate-ping bg-blue-500 rounded-full opacity-75"></div>
+                              </div>
+                            </Marker>
+                          )}
                           {/* Start Marker (Điểm đầu) */}
                           <Marker
                             longitude={trip.startPoint.coordinates[0]}
@@ -500,22 +516,10 @@ export default function TripCard(trip: TripCardProps) {
                             anchor="center"
                           >
                             <div className="relative">
-                              <div
-                                className="w-7 h-7 rounded-full border-2 shadow-lg"
-                                style={{
-                                  backgroundColor: 'var(--accent)',
-                                  borderColor: 'var(--card)',
-                                }}
-                              >
+                              <div className="w-7 h-7 rounded-full border-2 shadow-lg bg-blue-500 border-white">
                                 <span className="sr-only">Điểm đầu</span>
                               </div>
-                              <div
-                                className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-md shadow-sm text-sm font-medium"
-                                style={{
-                                  backgroundColor: 'var(--card)',
-                                  color: 'var(--cardForeground)',
-                                }}
-                              >
+                              <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-md shadow-sm text-sm font-medium bg-white text-gray-900">
                                 Điểm đầu: {safeWaypoints[0].name.split(',')[0]}
                               </div>
                             </div>
@@ -528,22 +532,10 @@ export default function TripCard(trip: TripCardProps) {
                             anchor="center"
                           >
                             <div className="relative">
-                              <div
-                                className="w-7 h-7 rounded-full border-2 shadow-lg"
-                                style={{
-                                  backgroundColor: 'var(--destructive)',
-                                  borderColor: 'var(--card)',
-                                }}
-                              >
+                              <div className="w-7 h-7 rounded-full border-2 shadow-lg bg-red-500 border-white">
                                 <span className="sr-only">Điểm cuối</span>
                               </div>
-                              <div
-                                className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-md shadow-sm text-sm font-medium"
-                                style={{
-                                  backgroundColor: 'var(--card)',
-                                  color: 'var(--cardForeground)',
-                                }}
-                              >
+                              <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-md shadow-sm text-sm font-medium bg-white text-gray-900">
                                 Điểm cuối:{' '}
                                 {
                                   safeWaypoints[
@@ -581,10 +573,8 @@ export default function TripCard(trip: TripCardProps) {
                                 >
                                   <div className="relative">
                                     <div
-                                      className="w-6 h-6 rounded-full border-2 shadow-md"
+                                      className="w-6 h-6 rounded-full border-2 shadow-md bg-yellow-400 border-white"
                                       style={{
-                                        backgroundColor: 'var(--accent)',
-                                        borderColor: 'var(--card)',
                                         clipPath:
                                           'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
                                       }}
@@ -593,13 +583,7 @@ export default function TripCard(trip: TripCardProps) {
                                         Điểm dừng {index + 1}
                                       </span>
                                     </div>
-                                    <div
-                                      className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-md shadow-sm text-sm font-medium"
-                                      style={{
-                                        backgroundColor: 'var(--card)',
-                                        color: 'var(--cardForeground)',
-                                      }}
-                                    >
+                                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-md shadow-sm text-sm font-medium bg-white text-gray-900">
                                       Điểm dừng: {wp.name.split(',')[0]}
                                     </div>
                                   </div>
@@ -611,28 +595,10 @@ export default function TripCard(trip: TripCardProps) {
                     </div>
 
                     {/* Details - 1/3 width */}
-                    <div
-                      className="w-full md:w-1/3 border-t md:border-t-0 md:border-l overflow-y-auto"
-                      style={{
-                        borderColor: 'var(--border)',
-                        backgroundColor: 'var(--background)',
-                      }}
-                    >
-                      <div
-                        className="p-6 sticky top-0 z-10 border-b"
-                        style={{
-                          backgroundColor: 'var(--card)',
-                          borderColor: 'var(--border)',
-                        }}
-                      >
-                        <h3
-                          className="text-lg font-semibold flex items-center gap-2"
-                          style={{ color: 'var(--foreground)' }}
-                        >
-                          <span
-                            className="w-2 h-2 rounded-full animate-pulse"
-                            style={{ backgroundColor: 'var(--primary)' }}
-                          />
+                    <div className="w-full md:w-1/3 border-t md:border-t-0 md:border-l overflow-y-auto bg-white">
+                      <div className="p-6 sticky top-0 z-10 border-b bg-white">
+                        <h3 className="text-lg font-semibold flex items-center gap-2 text-gray-900">
+                          <span className="w-2 h-2 rounded-full animate-pulse bg-blue-500" />
                           Chi tiết hành trình
                         </h3>
                       </div>
@@ -641,80 +607,70 @@ export default function TripCard(trip: TripCardProps) {
                         {/* Trip Info */}
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
-                            <span style={{ color: 'var(--mutedForeground)' }}>
-                              Tài xế
-                            </span>
-                            <span style={{ color: 'var(--foreground)' }}>
-                              {driverName}
-                            </span>
+                            <span className="text-gray-500">Tài xế</span>
+                            <span className="text-gray-900">{driverName}</span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span style={{ color: 'var(--mutedForeground)' }}>
-                              Giờ khởi hành
-                            </span>
-                            <span style={{ color: 'var(--foreground)' }}>
+                            <span className="text-gray-500">Giờ khởi hành</span>
+                            <span className="text-gray-900">
                               {departureTime}
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span style={{ color: 'var(--mutedForeground)' }}>
+                            <span className="text-gray-500">
                               Giờ đến dự kiến
                             </span>
-                            <span style={{ color: 'var(--foreground)' }}>
-                              {arrivalTime}
-                            </span>
+                            <span className="text-gray-900">{arrivalTime}</span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span style={{ color: 'var(--mutedForeground)' }}>
-                              Số chỗ
-                            </span>
-                            <span style={{ color: 'var(--foreground)' }}>
+                            <span className="text-gray-500">Số chỗ</span>
+                            <span className="text-gray-900">
                               {trip.seatsAvailable}
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span style={{ color: 'var(--mutedForeground)' }}>
-                              Giá mỗi ghế
+                            <span className="text-gray-500">
+                              Hành khách đã đăng ký
                             </span>
-                            <span style={{ color: 'var(--foreground)' }}>
+                            <span className="text-gray-900">
+                              {countcustomer}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">Giá mỗi ghế</span>
+                            <span className="text-gray-900">
                               {formattedPrice}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">
+                              Thương lượng giá
+                            </span>
+                            <span className="text-gray-900">
+                              {isNegotiable
+                                ? 'Có thể thương lượng'
+                                : 'Giá cố định'}
                             </span>
                           </div>
                         </div>
 
                         {/* Route Steps */}
                         <div className="space-y-4">
-                          <h4
-                            className="font-medium"
-                            style={{ color: 'var(--foreground)' }}
-                          >
+                          <h4 className="font-medium text-gray-900">
                             Các điểm trên đường
                           </h4>
                           <div className="relative max-h-64 overflow-y-auto scrollbar-thin pr-4">
-                            <div
-                              className="absolute left-[11px] top-2 bottom-2 w-px"
-                              style={{ backgroundColor: 'var(--primary)' }}
-                            ></div>
+                            <div className="absolute left-[11px] top-2 bottom-2 w-px bg-blue-500"></div>
                             <ul className="space-y-4">
                               {fallbackRouteSteps.map((step, index) => (
                                 <li key={index} className="relative pl-8">
-                                  <div
-                                    className="absolute left-0 top-1 w-3 h-3 rounded-full border-2 shadow-sm"
-                                    style={{
-                                      backgroundColor: 'var(--primary)',
-                                      borderColor: 'var(--card)',
-                                    }}
-                                  ></div>
+                                  <div className="absolute left-0 top-1 w-3 h-3 rounded-full border-2 shadow-sm bg-blue-500 border-white"></div>
                                   <div className="text-sm">
-                                    <p style={{ color: 'var(--foreground)' }}>
+                                    <p className="text-gray-900">
                                       {step.maneuver.instruction}
                                     </p>
                                     {step.distance > 1 && (
-                                      <p
-                                        style={{
-                                          color: 'var(--mutedForeground)',
-                                        }}
-                                      >
+                                      <p className="text-gray-500">
                                         {(step.distance / 1000).toFixed(2)} km
                                       </p>
                                     )}
@@ -733,14 +689,8 @@ export default function TripCard(trip: TripCardProps) {
 
             <Button
               onClick={handleDetailsClick}
-              className=""
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
               disabled={isFull}
-              style={{
-                backgroundColor: isFull ? 'var(--muted)' : 'var(--primary)',
-                color: isFull
-                  ? 'var(--mutedForeground)'
-                  : 'var(--primaryForeground)',
-              }}
             >
               Chi tiết
             </Button>

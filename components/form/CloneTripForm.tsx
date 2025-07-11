@@ -44,7 +44,7 @@ import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Calendar } from '@/components/ui/calendar'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { updateRouteMutationFn } from '@/api/routes/route'
+import { createRouteMutationFn } from '@/api/routes/route'
 import {
   Select,
   SelectContent,
@@ -111,7 +111,7 @@ const routeSchema = z
         invalid_type_error: 'Khoảng cách phải là số',
       })
       .min(1, 'Khoảng cách tối thiểu là 1 m')
-      .max(10000, 'Khoảng cách tối đa là 10000 m'),
+      .max(10000, 'Khoảng cách tối đa là 10 m'),
     isNegotiable: z.boolean({
       required_error: 'Vui lòng chọn trạng thái thương lượng giá',
     }),
@@ -149,11 +149,6 @@ type Waypoint = {
   estimatedArrivalDate?: Date
 }
 
-type MapRef = {
-  lastCoords: { lng: number; lat: number }[] | null
-  fitBounds: (bounds: mapboxgl.LngLatBounds, options?: any) => void
-}
-
 const parseDateSafe = (value?: string) => {
   if (!value) return startOfToday()
   const date = new Date(value)
@@ -165,7 +160,7 @@ const formatTimeSafe = (value?: string) => {
   return date ? format(date, 'HH:mm', { locale: vi }) : '08:00'
 }
 
-export default function UpdateRouteForm({ route, setIsOpen }: any) {
+export default function CloneRouteForm({ route, setIsOpen }: any) {
   const userLocationContext = useContext(UserLocationContext)
   const queryClient = useQueryClient()
 
@@ -263,7 +258,7 @@ export default function UpdateRouteForm({ route, setIsOpen }: any) {
     watch('departureDate')
   )
 
-  // Validate waypoints on initialization
+  // Validate waypoints and map on initialization
   useEffect(() => {
     const invalidWaypoints = route.waypoints.filter(
       (wp: any) => !wp.coordinates
@@ -273,6 +268,13 @@ export default function UpdateRouteForm({ route, setIsOpen }: any) {
       toast('Cảnh báo', {
         description: 'Một số điểm dừng không có tọa độ hợp lệ!',
         style: { background: '#ffcc00', color: '#000' },
+      })
+    }
+    if (!MAPBOX_TOKEN) {
+      console.error('Mapbox token is missing')
+      toast('Lỗi', {
+        description: 'Không thể tải bản đồ do thiếu Mapbox token!',
+        style: { background: '#ff3333', color: '#fff' },
       })
     }
     console.log('Initial route waypoints:', route.waypoints)
@@ -378,7 +380,7 @@ export default function UpdateRouteForm({ route, setIsOpen }: any) {
         setSelectedRouteIndex(0)
       }
 
-      // Update waypoint coordinates only, preserve full address names
+      // Update waypoints' coordinates only, preserve their names
       if (data.waypoints && data.waypoints.length >= 2) {
         const updatedWaypoints = waypoints.map((wp, index) => ({
           ...wp,
@@ -392,18 +394,21 @@ export default function UpdateRouteForm({ route, setIsOpen }: any) {
         setWaypoints(updatedWaypoints)
       }
 
-      if (mapRef.current) {
-        let bounds = new mapboxgl.LngLatBounds()
-        data.routes.forEach((route: any) => {
-          if (route.geometry?.coordinates) {
-            route.geometry.coordinates.forEach((coord: [number, number]) => {
-              bounds.extend(coord)
-            })
-          }
-        })
-        if (!bounds.isEmpty()) {
-          mapRef.current.fitBounds(bounds, { padding: 50 })
+      if (mapRef.current && !mapRef.current.isStyleLoaded()) {
+        console.warn('Map style not loaded yet')
+        return
+      }
+
+      let bounds = new mapboxgl.LngLatBounds()
+      data.routes.forEach((route: any) => {
+        if (route.geometry?.coordinates) {
+          route.geometry.coordinates.forEach((coord: [number, number]) => {
+            bounds.extend(coord)
+          })
         }
+      })
+      if (!bounds.isEmpty() && mapRef.current) {
+        mapRef.current.fitBounds(bounds, { padding: 50 })
       }
     } catch (error) {
       console.error('Error fetching route from Mapbox:', error)
@@ -464,7 +469,7 @@ export default function UpdateRouteForm({ route, setIsOpen }: any) {
     setNewWaypointDate(watch('departureDate'))
   }
 
-  // Update waypoint
+  // Update waypoint date
   const updateWaypoint = (id: string, updates: Partial<Waypoint>) => {
     setWaypoints(
       waypoints.map((wp) => (wp.id === id ? { ...wp, ...updates } : wp))
@@ -591,27 +596,6 @@ export default function UpdateRouteForm({ route, setIsOpen }: any) {
       setSelectedRouteIndex(0)
     }
   }, [departureCoords, destinationCoords, waypoints])
-
-  // Update mutation
-  const updateMutation = useMutation({
-    mutationFn: ({ routeId, data }: { routeId: string; data: any }) =>
-      updateRouteMutationFn(routeId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['routes', route.userId] })
-      toast('Thành công', {
-        description: 'Cập nhật tuyến đường thành công!',
-        style: { background: '#00fd15', color: '#fff' },
-      })
-      setIsOpen(false)
-    },
-    onError: (error: any) => {
-      toast('Lỗi', {
-        description:
-          error.message || 'Không thể cập nhật tuyến đường. Vui lòng thử lại!',
-        style: { background: '#ff3333', color: '#fff' },
-      })
-    },
-  })
 
   const onSubmit = async (data: RouteFormData) => {
     if (
@@ -765,11 +749,17 @@ export default function UpdateRouteForm({ route, setIsOpen }: any) {
         isNegotiable: data.isNegotiable,
       }
 
-      await updateMutation.mutateAsync({ routeId: route.id, data: routeData })
+      await createRouteMutationFn(routeData)
+      toast('Thành công', {
+        description: `Tuyến đường ${routeData.name} đã được tạo lại!`,
+        style: { background: '#00fd15', color: '#fff' },
+      })
+      setIsOpen(false)
     } catch (error: any) {
       toast('Lỗi', {
         description:
-          error.message || 'Không thể cập nhật tuyến đường. Vui lòng thử lại!',
+          error.message ||
+          'Không thể tạo lại tuyến đường cũ. Vui lòng thử lại!',
         style: { background: '#ff3333', color: '#fff' },
       })
     } finally {
@@ -789,9 +779,9 @@ export default function UpdateRouteForm({ route, setIsOpen }: any) {
                   <Route className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="leading-tight">Chỉnh sửa tuyến đường</p>
+                  <p className="leading-tight">Tạo lại tuyến đường</p>
                   <p className="text-sm font-normal text-[var(--muted-foreground)] mt-1">
-                    Cập nhật thông tin tuyến đường của bạn
+                    Tạo lại tuyến cũ mà bạn đã đăng ký trước đó
                   </p>
                 </div>
               </CardTitle>
@@ -877,24 +867,21 @@ export default function UpdateRouteForm({ route, setIsOpen }: any) {
                                 <CommandItem
                                   key={`${suggestion.place_id}-${suggestion.description}`}
                                   value={suggestion.description}
-                                  onSelect={() => {
-                                    setValue(
-                                      'departurePoint',
-                                      suggestion.description
-                                    )
-                                    setDepartureQuery(suggestion.description)
+                                  onSelect={(value) => {
+                                    setValue('departurePoint', value)
+                                    setDepartureQuery(value)
                                     setDepartureCoords(suggestion.coordinates)
-                                    setDepartureName(suggestion.description)
+                                    setDepartureName(value)
                                     setDepartureOpen(false)
                                   }}
                                   className="px-3 py-2.5 cursor-pointer rounded-md hover:bg-[var(--accent)] text-[var(--foreground)] aria-selected:bg-[var(--primary)]/10 aria-selected:text-[var(--primary)]"
                                 >
                                   <div className="flex items-start gap-3">
-                                    <div className="p-1 rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
+                                    <div className=" p-1 rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
                                       <MapPin className="h-3 w-3" />
                                     </div>
                                     <div>
-                                      <p className="text-sm font-medium">
+                                      <p className="text-sm font-medium line-clamp-2">
                                         {suggestion.description}
                                       </p>
                                     </div>
@@ -930,7 +917,9 @@ export default function UpdateRouteForm({ route, setIsOpen }: any) {
                     >
                       <div className="flex items-center gap-2">
                         <div className="flex-1">
-                          <p className="text-sm font-medium">{waypoint.name}</p>
+                          <p className="text-sm font-medium line-clamp-2">
+                            {waypoint.name}
+                          </p>
                         </div>
                         <Button
                           type="button"
@@ -1115,11 +1104,11 @@ export default function UpdateRouteForm({ route, setIsOpen }: any) {
                                     className="px-3 py-2.5 cursor-pointer rounded-md hover:bg-[var(--accent)] text-[var(--foreground)] aria-selected:bg-[var(--primary)]/10 aria-selected:text-[var(--primary)]"
                                   >
                                     <div className="flex items-start gap-3">
-                                      <div className="p-1 rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
+                                      <div className=" p-1 rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
                                         <MapPin className="h-3 w-3" />
                                       </div>
                                       <div>
-                                        <p className="text-sm font-medium">
+                                        <p className="text-sm font-medium line-clamp-2">
                                           {suggestion.description}
                                         </p>
                                       </div>
@@ -1230,24 +1219,21 @@ export default function UpdateRouteForm({ route, setIsOpen }: any) {
                                 <CommandItem
                                   key={`${suggestion.place_id}-${suggestion.description}`}
                                   value={suggestion.description}
-                                  onSelect={() => {
-                                    setValue(
-                                      'destination',
-                                      suggestion.description
-                                    )
-                                    setDestinationQuery(suggestion.description)
+                                  onSelect={(value) => {
+                                    setValue('destination', value)
+                                    setDestinationQuery(value)
                                     setDestinationCoords(suggestion.coordinates)
-                                    setDestinationName(suggestion.description)
+                                    setDestinationName(value)
                                     setDestinationOpen(false)
                                   }}
                                   className="px-3 py-2.5 cursor-pointer rounded-md hover:bg-[var(--accent)] text-[var(--foreground)] aria-selected:bg-[var(--primary)]/10 aria-selected:text-[var(--primary)]"
                                 >
                                   <div className="flex items-start gap-3">
-                                    <div className="p-1 rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
-                                      <MapPin className="h-3 w-3" />
+                                    <div className="mt-0.5 p-1 rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
+                                      <MapPin className="h-3.5 w-3.5" />
                                     </div>
                                     <div>
-                                      <p className="text-sm font-medium">
+                                      <p className="text-sm font-medium line-clamp-2">
                                         {suggestion.description}
                                       </p>
                                     </div>
@@ -1553,7 +1539,7 @@ export default function UpdateRouteForm({ route, setIsOpen }: any) {
                     }
                     className="w-full h-12 text-base font-medium bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-[var(--primary-foreground)] shadow-md transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isSubmitting ? 'Đang cập nhật...' : 'Cập nhật tuyến đường'}
+                    {isSubmitting ? 'Đang tạo...' : 'Tạo lại tuyến đường'}
                   </Button>
                 </div>
               </form>

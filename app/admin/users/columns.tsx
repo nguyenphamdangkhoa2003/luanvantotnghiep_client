@@ -175,11 +175,11 @@ export const createColumns = (refetch: () => void): ColumnDef<UserType>[] => [
                 href={`/admin/users/${row.original._id}`}
               >
                 <CgProfile />
-                View
+                Xem chi tiết
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+            {/* <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
               <ConfirmDialog
                 triggerText={isBanned ? 'Unban' : 'Ban'}
                 triggerVariant="ghost"
@@ -222,7 +222,7 @@ export const createColumns = (refetch: () => void): ColumnDef<UserType>[] => [
                   Delete
                 </div>
               </ConfirmDialog>
-            </DropdownMenuItem>
+            </DropdownMenuItem> */}
           </DropdownMenuContent>
         </DropdownMenu>
       )
