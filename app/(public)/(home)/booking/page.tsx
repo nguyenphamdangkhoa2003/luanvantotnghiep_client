@@ -19,6 +19,8 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { UserLocationContext } from '@/hooks/use-user-location-context'
 import { IUserLocation } from '@/types/user-location'
+import { point, lineString, pointToLineDistance } from '@turf/turf'
+
 interface Trip {
   _id: string
   userId: {
@@ -59,15 +61,22 @@ interface Trip {
   isNegotiable: boolean
   maxPickupDistance: number
 }
+
 export default function BookingPage() {
   const [trips, setTrips] = useState<Trip[]>([])
   const [sortBy, setSortBy] = useState<string>('price-asc')
   const [priceRange, setPriceRange] = useState<number[]>([0, 5000000])
   const [minSeats, setMinSeats] = useState<number>(1)
   const [minRating, setMinRating] = useState<number>(0)
+  const [noPassengers, setNoPassengers] = useState<boolean>(false)
   const [loading, setLoading] = useState<boolean>(true)
   const searchParams = useSearchParams()
   const [userLocation, setUserLocation] = useState<IUserLocation>()
+
+  const departure = useMemo(() => {
+    return JSON.parse(localStorage.getItem('searchTripForm') || '{}')
+  }, [])
+
   function getUserLocation() {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -89,6 +98,7 @@ export default function BookingPage() {
   useEffect(() => {
     getUserLocation()
   }, [])
+
   // Load search results from API
   const loadSearchResults = async (searchData: any) => {
     try {
@@ -112,11 +122,26 @@ export default function BookingPage() {
 
   const filteredTrips = useMemo(() => {
     let filtered = trips
+      .map((trip) => {
+        const userDistanceToRoute =
+          departure.pickupCoords && trip.path?.coordinates?.length > 0
+            ? pointToLineDistance(
+                point([departure.pickupCoords.lng, departure.pickupCoords.lat]),
+                lineString(trip.path.coordinates),
+                { units: 'kilometers' }
+              )
+            : null
+        return { ...trip, userDistanceToRoute }
+      })
       .filter(
         (trip) => trip.price >= priceRange[0] && trip.price <= priceRange[1]
       )
       .filter((trip) => trip.seatsAvailable >= minSeats)
       .filter((trip) => trip.userId.averageRating >= minRating)
+      .filter((trip) => !noPassengers || trip.passengerCount === 0)
+   
+    
+
     switch (sortBy) {
       case 'price-asc':
         return filtered.sort((a, b) => a.price - b.price)
@@ -126,23 +151,31 @@ export default function BookingPage() {
         return filtered.sort((a, b) => a.seatsAvailable - b.seatsAvailable)
       case 'seats-desc':
         return filtered.sort((a, b) => b.seatsAvailable - a.seatsAvailable)
-
+      case 'distance-asc':
+        return filtered.sort(
+          (a, b) =>
+            (a.userDistanceToRoute ?? Infinity) -
+            (b.userDistanceToRoute ?? Infinity)
+        )
+      case 'distance-desc':
+        return filtered.sort(
+          (a, b) => (b.userDistanceToRoute ?? 0) - (a.userDistanceToRoute ?? 0)
+        )
       default:
         return filtered
     }
-  }, [trips, priceRange, minRating, minSeats, sortBy])
-
+  }, [trips, priceRange, minRating, minSeats, noPassengers, sortBy, departure])
 
   useEffect(() => {
     const loadInitialData = async () => {
-      // ✨ Load ngay từ localStorage để hiển thị cũ trước
+      // Load from localStorage to display cached results first
       const cachedResults = localStorage.getItem('searchResults')
       if (cachedResults) {
         setTrips(JSON.parse(cachedResults))
-        setLoading(false) // tắt skeleton ngay
+        setLoading(false)
       }
 
-      // Tiếp tục như cũ, gọi API để đảm bảo data mới
+      // Continue with API call to ensure fresh data
       const pickup = searchParams.get('pickup')
       const dropoff = searchParams.get('dropoff')
       const date = searchParams.get('date')
@@ -195,13 +228,11 @@ export default function BookingPage() {
 
     loadInitialData()
   }, [searchParams])
-  
 
   const handleSearchResults = (results: Trip[]) => {
     setTrips(results)
     localStorage.setItem('searchResults', JSON.stringify(results))
   }
-
 
   return (
     <UserLocationContext.Provider value={{ userLocation, setUserLocation }}>
@@ -327,7 +358,7 @@ export default function BookingPage() {
                 </div>
 
                 {/* Rating Filter */}
-                <div className="mb-4">
+                <div className="mb-6">
                   <label
                     className="text-sm font-medium mb-2 block"
                     style={{ color: 'var(--foreground)' }}
@@ -357,6 +388,22 @@ export default function BookingPage() {
                       </button>
                     )}
                   </div>
+                </div>
+
+                {/* No Passengers Filter */}
+                <div className="mb-6">
+                  <label
+                    className="flex items-center text-sm font-medium"
+                    style={{ color: 'var(--foreground)' }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={noPassengers}
+                      onChange={(e) => setNoPassengers(e.target.checked)}
+                      className="mr-2 h-4 w-4 text-[var(--primary)] border-[var(--border)] rounded focus:ring-[var(--primary)]"
+                    />
+                    Chỉ hiển thị chuyến đi không có hành khách
+                  </label>
                 </div>
               </div>
             </div>
@@ -415,12 +462,12 @@ export default function BookingPage() {
                       <SelectItem value="seats-desc">
                         Ghế: Nhiều đến ít
                       </SelectItem>
+                      <SelectItem value="distance-asc">Gần bạn nhất</SelectItem>
+                      <SelectItem value="distance-desc">Xa bạn nhất</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-
-              
 
               {/* No Results */}
               {!loading && filteredTrips.length === 0 && (
