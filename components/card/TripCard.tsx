@@ -25,8 +25,8 @@ import {
 import { Button } from '@/components/ui/button'
 import Map, { Source, Layer, Marker } from 'react-map-gl/mapbox'
 import 'mapbox-gl/dist/mapbox-gl.css'
-import { useContext, useMemo, useState } from 'react'
-import { point, lineString, pointToLineDistance } from '@turf/turf'
+import { point, lineString, pointToLineDistance, simplify } from '@turf/turf'
+import { useMemo, useState, useEffect, useContext } from 'react'
 import { UserLocationContext } from '@/hooks/use-user-location-context'
 
 interface TripCardProps {
@@ -66,8 +66,12 @@ interface TripCardProps {
     type: 'LineString'
     coordinates: [number, number][]
   }
+  simplifiedPath: {
+    type: 'LineString'
+    coordinates: [number, number][]
+  }
   isNegotiable: boolean
-  maxPickupDistance:number
+  maxPickupDistance: number
 }
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
@@ -119,10 +123,26 @@ const validateCoordinates = (coords: unknown): coords is [number, number] => {
     coords.length === 2 &&
     typeof coords[0] === 'number' &&
     typeof coords[1] === 'number' &&
+    !isNaN(coords[0]) &&
+    !isNaN(coords[1]) &&
     coords[0] >= -180 &&
     coords[0] <= 180 &&
     coords[1] >= -90 &&
     coords[1] <= 90
+  )
+}
+
+const validatePickupCoords = (pickupCoords: any): boolean => {
+  return (
+    pickupCoords &&
+    typeof pickupCoords.lng === 'number' &&
+    typeof pickupCoords.lat === 'number' &&
+    !isNaN(pickupCoords.lng) &&
+    !isNaN(pickupCoords.lat) &&
+    pickupCoords.lng >= -180 &&
+    pickupCoords.lng <= 180 &&
+    pickupCoords.lat >= -90 &&
+    pickupCoords.lat <= 90
   )
 }
 
@@ -157,17 +177,43 @@ export default function TripCard(trip: TripCardProps) {
   const userLocation = userLocationContext?.userLocation
   const [showMap, setShowMap] = useState(false)
   const maxdistance = trip.maxPickupDistance
-  const departure = JSON.parse(localStorage.getItem('searchTripForm') || '{}')
-  const userDistanceToRoute = useMemo(() => {
-    if (departure.pickupCoords && trip.path?.coordinates?.length > 0) {
-      return pointToLineDistance(
-        point([departure.pickupCoords.lng, departure.pickupCoords.lat]),
-        lineString(trip.path.coordinates),
-        { units: 'kilometers' }
-      )
+  const departure = useMemo(() => {
+    try {
+      const stored = localStorage.getItem('searchTripForm')
+      const parsed = stored ? JSON.parse(stored) : {}
+      if (!validatePickupCoords(parsed.pickupCoords)) {
+        console.warn(
+          'Invalid pickupCoords in searchTripForm:',
+          parsed.pickupCoords
+        )
+        return { ...parsed, pickupCoords: null }
+      }
+      return parsed
+    } catch (error) {
+      console.error('Error parsing searchTripForm:', error)
+      return {}
     }
-    return null
-  }, [departure.pickupCoords, trip.path?.coordinates])
+  }, [])
+
+  const userDistanceToRoute = useMemo(() => {
+    try {
+      if (
+        departure.pickupCoords &&
+        validatePickupCoords(departure.pickupCoords) &&
+        trip.simplifiedPath?.coordinates?.length > 0 &&
+        trip.simplifiedPath.coordinates.every(validateCoordinates)
+      ) {
+        return pointToLineDistance(
+          point([departure.pickupCoords.lng, departure.pickupCoords.lat]),
+          lineString(trip.simplifiedPath.coordinates),
+          { units: 'kilometers' }
+        )
+      }
+      return null
+    } catch (error) {
+      return null
+    }
+  }, [departure.pickupCoords, trip.simplifiedPath?.coordinates, trip._id])
 
   // Filter intermediate waypoints (exclude first and last)
   const intermediateWaypoints = trip.waypoints.filter(
@@ -177,12 +223,17 @@ export default function TripCard(trip: TripCardProps) {
   if (
     !trip.startPoint?.coordinates ||
     !trip.endPoint?.coordinates ||
-    !trip.path?.coordinates
+    !trip.path?.coordinates ||
+    !trip.startPoint.coordinates.every((coord) => typeof coord === 'number') ||
+    !trip.endPoint.coordinates.every((coord) => typeof coord === 'number') ||
+    !trip.path.coordinates.every(validateCoordinates)
   ) {
     return (
       <Card className="border border-gray-200 rounded-lg shadow-sm">
         <CardContent className="p-4">
-          <p className="text-red-500">Lỗi: Dữ liệu chuyến đi không hợp lệ</p>
+          <p className="text-red-500">
+            Lỗi: Dữ liệu tọa độ chuyến đi không hợp lệ
+          </p>
         </CardContent>
       </Card>
     )
@@ -407,7 +458,7 @@ export default function TripCard(trip: TripCardProps) {
             <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-md">
               <MapPin className="w-4 h-4 text-blue-600" />
               <span className="text-sm font-medium text-gray-700">
-                Khoảng cách tối đa có thể đón: {maxdistance/1000} km
+                Khoảng cách tối đa đón/trả: {maxdistance / 1000} km
               </span>
             </div>
           </div>
@@ -485,18 +536,19 @@ export default function TripCard(trip: TripCardProps) {
                               }}
                             />
                           </Source>
-                          {departure.pickupCoords && (
-                            <Marker
-                              longitude={departure.pickupCoords.lng}
-                              latitude={departure.pickupCoords.lat}
-                              anchor="bottom"
-                            >
-                              <div className="relative">
-                                <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-md"></div>
-                                <div className="absolute inset-0 animate-ping bg-blue-500 rounded-full opacity-75"></div>
-                              </div>
-                            </Marker>
-                          )}
+                          {departure.pickupCoords &&
+                            validatePickupCoords(departure.pickupCoords) && (
+                              <Marker
+                                longitude={departure.pickupCoords.lng}
+                                latitude={departure.pickupCoords.lat}
+                                anchor="bottom"
+                              >
+                                <div className="relative">
+                                  <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-md"></div>
+                                  <div className="absolute inset-0 animate-ping bg-blue-500 rounded-full opacity-75"></div>
+                                </div>
+                              </Marker>
+                            )}
                           {userLocation && (
                             <Marker
                               longitude={userLocation.lng}

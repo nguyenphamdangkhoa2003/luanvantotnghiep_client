@@ -68,6 +68,10 @@ interface Trip {
     type: 'LineString'
     coordinates: [number, number][]
   }
+  simplifiedPath: {
+    type: 'LineString'
+    coordinates: [number, number][]
+  }
   isNegotiable: boolean
   maxPickupDistance: number
 }
@@ -86,7 +90,30 @@ export default function BookingPage() {
   const departure = useMemo(() => {
     return JSON.parse(localStorage.getItem('searchTripForm') || '{}')
   }, [])
+  const validateCoordinates = (coords: unknown): coords is [number, number] => {
+    return (
+      Array.isArray(coords) &&
+      coords.length === 2 &&
+      typeof coords[0] === 'number' &&
+      typeof coords[1] === 'number' &&
+      coords[0] >= -180 &&
+      coords[0] <= 180 &&
+      coords[1] >= -90 &&
+      coords[1] <= 90
+    )
+  }
 
+  const validatePickupCoords = (pickupCoords: any): boolean => {
+    return (
+      pickupCoords &&
+      typeof pickupCoords.lng === 'number' &&
+      typeof pickupCoords.lat === 'number' &&
+      pickupCoords.lng >= -180 &&
+      pickupCoords.lng <= 180 &&
+      pickupCoords.lat >= -90 &&
+      pickupCoords.lat <= 90
+    )
+  }
   function getUserLocation() {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -109,6 +136,7 @@ export default function BookingPage() {
     getUserLocation()
   }, [])
 
+  // Load search results from API
   const loadSearchResults = async (searchData: any) => {
     try {
       setLoading(true)
@@ -132,14 +160,23 @@ export default function BookingPage() {
   const filteredTrips = useMemo(() => {
     let filtered = trips
       .map((trip) => {
-        const userDistanceToRoute =
-          departure.pickupCoords && trip.path?.coordinates?.length > 0
-            ? pointToLineDistance(
-                point([departure.pickupCoords.lng, departure.pickupCoords.lat]),
-                lineString(trip.path.coordinates),
-                { units: 'kilometers' }
-              )
-            : null
+        let userDistanceToRoute = null
+        try {
+          if (
+            departure.pickupCoords &&
+            validatePickupCoords(departure.pickupCoords) &&
+            trip.path?.coordinates?.length > 0 &&
+            trip.path.coordinates.every(validateCoordinates)
+          ) {
+            userDistanceToRoute = pointToLineDistance(
+              point([departure.pickupCoords.lng, departure.pickupCoords.lat]),
+              lineString(trip.path.coordinates),
+              { units: 'kilometers' }
+            )
+          }
+        } catch (error) {
+          console.warn(`Invalid coordinates for trip ${trip._id}:`, error)
+        }
         return { ...trip, userDistanceToRoute }
       })
       .filter(
@@ -157,12 +194,10 @@ export default function BookingPage() {
       case 'seats-asc':
         return filtered.sort((a, b) => a.seatsAvailable - b.seatsAvailable)
       case 'seats-desc':
-        return filtered.sort((a, b) => b.seatsAvailable - b.seatsAvailable)
+        return filtered.sort((a, b) => b.seatsAvailable - a.seatsAvailable)
       case 'distance-asc':
         return filtered.sort(
-          (a, b) =>
-            (a.userDistanceToRoute ?? Infinity) -
-            (b.userDistanceToRoute ?? Infinity)
+          (a, b) => (a.userDistanceToRoute ?? 0) - (b.userDistanceToRoute ?? 0)
         )
       case 'distance-desc':
         return filtered.sort(
@@ -175,12 +210,14 @@ export default function BookingPage() {
 
   useEffect(() => {
     const loadInitialData = async () => {
+      // Load from localStorage to display cached results first
       const cachedResults = localStorage.getItem('searchResults')
       if (cachedResults) {
         setTrips(JSON.parse(cachedResults))
         setLoading(false)
       }
 
+      // Continue with API call to ensure fresh data
       const pickup = searchParams.get('pickup')
       const dropoff = searchParams.get('dropoff')
       const date = searchParams.get('date')
@@ -238,13 +275,11 @@ export default function BookingPage() {
     setTrips(results)
     localStorage.setItem('searchResults', JSON.stringify(results))
   }
-
   const pickup = searchParams.get('pickup')
   const dropoff = searchParams.get('dropoff')
   const date = searchParams.get('date')
   const passengers = searchParams.get('passengers')
   const maxDistanceParam = searchParams.get('maxDistance')
-
   return (
     <UserLocationContext.Provider value={{ userLocation, setUserLocation }}>
       <div
@@ -255,6 +290,7 @@ export default function BookingPage() {
         }}
       >
         <div className="max-w-7xl mx-auto">
+          {/* Breadcrumb Navigation */}
           <nav
             aria-label="Breadcrumb"
             className="flex items-center text-sm mb-4 mt-6"
@@ -279,6 +315,7 @@ export default function BookingPage() {
             </span>
           </nav>
 
+          {/* Search Section */}
           <div
             className="mb-2 p-6"
             style={{
@@ -291,77 +328,76 @@ export default function BookingPage() {
             </h1>
             <SearchTrip onSearchResults={handleSearchResults} />
           </div>
-
+          {/* Enhanced Search Parameters Display */}
           {(pickup || dropoff || date || passengers || maxDistanceParam) && (
             <div
-              className="mb-6 p-4 rounded-lg shadow-sm border"
+              className="mb-6 p-6 rounded-xl shadow-sm border"
               style={{
                 backgroundColor: 'var(--card)',
                 borderColor: 'var(--border)',
               }}
             >
-              <h3 className="text-lg font-semibold mb-3 flex items-center">
+              <h3 className="text-lg font-semibold mb-4 flex items-center">
                 <Filter className="w-5 h-5 mr-2 text-primary" />
                 Thông tin tìm kiếm
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                 {pickup && (
                   <div
-                    className="p-3 rounded-md transition-all hover:bg-[var(--secondary-hover)]"
+                    className="p-3 rounded-lg transition-all hover:shadow-md"
                     style={{
                       backgroundColor: 'var(--secondary)',
-                      border: '1px solid var(--border)',
+                      border: '1px solid var(--input)',
                     }}
                   >
-                    <div className="flex items-start space-x-2">
-                      <MapPin className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-xs font-medium text-muted-foreground">
+                    <div className="flex items-center">
+                      <MapPin className="w-5 h-5 mr-2 text-blue-500" />
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">
                           Điểm đón
                         </p>
-                        <p className="text-sm font-semibold break-words">
-                          {pickup}
-                        </p>
+                        <p className="font-medium">{pickup}</p>
                       </div>
                     </div>
                   </div>
                 )}
+
                 {dropoff && (
                   <div
-                    className="p-3 rounded-md transition-all hover:bg-[var(--secondary-hover)]"
+                    className="p-3 rounded-lg transition-all hover:shadow-md"
                     style={{
                       backgroundColor: 'var(--secondary)',
-                      border: '1px solid var(--border)',
+                      border: '1px solid var(--input)',
                     }}
                   >
-                    <div className="flex items-start space-x-2">
-                      <MapPin className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-xs font-medium text-muted-foreground">
+                    <div className="flex items-center">
+                      <MapPin className="w-5 h-5 mr-2 text-green-500" />
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">
                           Điểm đến
                         </p>
-                        <p className="text-sm font-semibold break-words">
-                          {dropoff}
-                        </p>
+                        <p className="font-medium">{dropoff}</p>
                       </div>
                     </div>
                   </div>
                 )}
+
                 {date && (
                   <div
-                    className="p-3 rounded-md transition-all hover:bg-[var(--secondary-hover)]"
+                    className="p-3 rounded-lg transition-all hover:shadow-md"
                     style={{
                       backgroundColor: 'var(--secondary)',
-                      border: '1px solid var(--border)',
+                      border: '1px solid var(--input)',
                     }}
                   >
-                    <div className="flex items-start space-x-2">
-                      <Calendar className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-xs font-medium text-muted-foreground">
+                    <div className="flex items-center">
+                      <Calendar className="w-5 h-5 mr-2 text-purple-500" />
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">
                           Ngày đi
                         </p>
-                        <p className="text-sm font-semibold">
+                        <p className="font-medium">
                           {new Date(date).toLocaleDateString('vi-VN', {
                             weekday: 'short',
                             day: '2-digit',
@@ -373,44 +409,42 @@ export default function BookingPage() {
                     </div>
                   </div>
                 )}
+
                 {passengers && (
                   <div
-                    className="p-3 rounded-md transition-all hover:bg-[var(--secondary-hover)]"
+                    className="p-3 rounded-lg transition-all hover:shadow-md"
                     style={{
                       backgroundColor: 'var(--secondary)',
-                      border: '1px solid var(--border)',
+                      border: '1px solid var(--input)',
                     }}
                   >
-                    <div className="flex items-start space-x-2">
-                      <Users className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-xs font-medium text-muted-foreground">
+                    <div className="flex items-center">
+                      <Users className="w-5 h-5 mr-2 text-orange-500" />
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">
                           Hành khách
                         </p>
-                        <p className="text-sm font-semibold">
-                          {passengers} người
-                        </p>
+                        <p className="font-medium">{passengers} người</p>
                       </div>
                     </div>
                   </div>
                 )}
+
                 {maxDistanceParam && (
                   <div
-                    className="p-3 rounded-md transition-all hover:bg-[var(--secondary-hover)]"
+                    className="p-3 rounded-lg transition-all hover:shadow-md"
                     style={{
                       backgroundColor: 'var(--secondary)',
-                      border: '1px solid var(--border)',
+                      border: '1px solid var(--input)',
                     }}
                   >
-                    <div className="flex items-start space-x-2">
-                      <Move className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-xs font-medium text-muted-foreground">
+                    <div className="flex items-center">
+                      <Move className="w-5 h-5 mr-2 text-yellow-500" />
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">
                           Khoảng cách
                         </p>
-                        <p className="text-sm font-semibold">
-                          {maxDistanceParam} km
-                        </p>
+                        <p className="font-medium">{maxDistanceParam} m</p>
                       </div>
                     </div>
                   </div>
@@ -419,7 +453,9 @@ export default function BookingPage() {
             </div>
           )}
 
+          {/* Main Content */}
           <div className="flex flex-col lg:flex-row gap-6">
+            {/* Filter Sidebar */}
             <div className="lg:w-1/4 space-y-4">
               <div
                 className="p-4 rounded-lg shadow-sm"
@@ -438,6 +474,8 @@ export default function BookingPage() {
                   />
                   Bộ lọc
                 </h3>
+
+                {/* Price Filter */}
                 <div className="mb-6">
                   <label
                     className="text-sm font-medium mb-2 block"
@@ -467,6 +505,8 @@ export default function BookingPage() {
                     <span>{priceRange[1].toLocaleString()} VNĐ</span>
                   </div>
                 </div>
+
+                {/* Seats Filter */}
                 <div className="mb-6">
                   <label
                     className="text-sm font-medium mb-2 block"
@@ -486,6 +526,8 @@ export default function BookingPage() {
                     }}
                   />
                 </div>
+
+                {/* Rating Filter */}
                 <div className="mb-6">
                   <label
                     className="text-sm font-medium mb-2 block"
@@ -517,6 +559,8 @@ export default function BookingPage() {
                     )}
                   </div>
                 </div>
+
+                {/* No Passengers Filter */}
                 <div className="mb-6">
                   <label
                     className="flex items-center text-sm font-medium"
@@ -533,7 +577,10 @@ export default function BookingPage() {
                 </div>
               </div>
             </div>
+
+            {/* Trips List */}
             <div className="lg:w-3/4 space-y-4">
+              {/* Sort and Results Header */}
               <div
                 className="p-4 rounded-lg shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
                 style={{
@@ -555,6 +602,7 @@ export default function BookingPage() {
                     ({filteredTrips.length} kết quả)
                   </span>
                 </h2>
+
                 <div className="w-full sm:w-auto">
                   <Select value={sortBy} onValueChange={setSortBy}>
                     <SelectTrigger
@@ -590,6 +638,8 @@ export default function BookingPage() {
                   </Select>
                 </div>
               </div>
+
+              {/* No Results */}
               {!loading && filteredTrips.length === 0 && (
                 <div
                   className="bg-red-50 text-red-700 p-6 rounded-lg border border-red-100 flex flex-col items-center justify-center py-12"
@@ -618,6 +668,8 @@ export default function BookingPage() {
                   </p>
                 </div>
               )}
+
+              {/* Results List */}
               {!loading && filteredTrips.length > 0 && (
                 <div className="grid gap-4">
                   {filteredTrips.map((trip, index) => (
