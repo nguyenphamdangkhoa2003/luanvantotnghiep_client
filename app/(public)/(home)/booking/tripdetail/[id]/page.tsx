@@ -618,25 +618,27 @@ const TripDetails = () => {
               </h3>
               <div className="relative pl-8">
                 <div className="absolute left-2 top-2 bottom-2 w-px bg-primary/20"></div>
-                {safeWaypoints.slice(1, safeWaypoints.length - 1).map((wp: any, index: number) => (
-                  <div key={index} className="relative mb-4">
-                    <div className="absolute left-[-1.5rem] top-1 w-3 h-3 rounded-full bg-primary border-2 border-white shadow-sm"></div>
-                    <div className="flex items-start gap-3 p-4 bg-[var(--accent)] rounded-[var(--radius-md)]">
-                      <div>
-                        <p className="font-medium text-[var(--muted-foreground)] text-sm">
-                          {`ĐIỂM DỪNG ${index + 1}`}
-                        </p>
-                        <p className="font-semibold text-[var(--foreground)]">
-                          {wp.name}
-                        </p>
+                {safeWaypoints
+                  .slice(1, safeWaypoints.length - 1)
+                  .map((wp: any, index: number) => (
+                    <div key={index} className="relative mb-4">
+                      <div className="absolute left-[-1.5rem] top-1 w-3 h-3 rounded-full bg-primary border-2 border-white shadow-sm"></div>
+                      <div className="flex items-start gap-3 p-4 bg-[var(--accent)] rounded-[var(--radius-md)]">
+                        <div>
+                          <p className="font-medium text-[var(--muted-foreground)] text-sm">
+                            {`ĐIỂM DỪNG ${index + 1}`}
+                          </p>
+                          <p className="font-semibold text-[var(--foreground)]">
+                            {wp.name}
+                          </p>
 
-                        <p className="text-sm text-[var(--muted-foreground)] mt-1">
-                          Ngày đến: {formatDate(wp.estimatedArrivalTime)}
-                        </p>
+                          <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                            Ngày đến: {formatDate(wp.estimatedArrivalTime)}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
           )}
@@ -876,7 +878,12 @@ const TripDetails = () => {
       </Card>
 
       <div className="flex flex-col sm:flex-row gap-4 justify-center">
-        {hasRequested ? (
+        {trip.seatsAvailable === 0 ? (
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-100 text-red-800 rounded-[var(--radius-md)]">
+            <Users className="w-5 h-5" />
+            <span className="font-medium">Chuyến đi này đã hết chỗ</span>
+          </div>
+        ) : hasRequested ? (
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-800 rounded-[var(--radius-md)]">
             <MessageSquare className="w-5 h-5" />
             <span className="font-medium">

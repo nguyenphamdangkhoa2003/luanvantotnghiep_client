@@ -1,6 +1,16 @@
 'use client'
 
-import { ChevronRight, Home, Filter, Star, Users, Clock } from 'lucide-react'
+import {
+  ChevronRight,
+  Home,
+  Filter,
+  Star,
+  Users,
+  Clock,
+  Move,
+  Calendar,
+  MapPin,
+} from 'lucide-react'
 import Link from 'next/link'
 import TripCard from '@/components/card/TripCard'
 import SearchTrip from '@/components/form/SearchTripForm'
@@ -99,7 +109,6 @@ export default function BookingPage() {
     getUserLocation()
   }, [])
 
-  // Load search results from API
   const loadSearchResults = async (searchData: any) => {
     try {
       setLoading(true)
@@ -139,8 +148,6 @@ export default function BookingPage() {
       .filter((trip) => trip.seatsAvailable >= minSeats)
       .filter((trip) => trip.userId.averageRating >= minRating)
       .filter((trip) => !noPassengers || trip.passengerCount === 0)
-   
-    
 
     switch (sortBy) {
       case 'price-asc':
@@ -150,7 +157,7 @@ export default function BookingPage() {
       case 'seats-asc':
         return filtered.sort((a, b) => a.seatsAvailable - b.seatsAvailable)
       case 'seats-desc':
-        return filtered.sort((a, b) => b.seatsAvailable - a.seatsAvailable)
+        return filtered.sort((a, b) => b.seatsAvailable - b.seatsAvailable)
       case 'distance-asc':
         return filtered.sort(
           (a, b) =>
@@ -168,14 +175,12 @@ export default function BookingPage() {
 
   useEffect(() => {
     const loadInitialData = async () => {
-      // Load from localStorage to display cached results first
       const cachedResults = localStorage.getItem('searchResults')
       if (cachedResults) {
         setTrips(JSON.parse(cachedResults))
         setLoading(false)
       }
 
-      // Continue with API call to ensure fresh data
       const pickup = searchParams.get('pickup')
       const dropoff = searchParams.get('dropoff')
       const date = searchParams.get('date')
@@ -234,6 +239,12 @@ export default function BookingPage() {
     localStorage.setItem('searchResults', JSON.stringify(results))
   }
 
+  const pickup = searchParams.get('pickup')
+  const dropoff = searchParams.get('dropoff')
+  const date = searchParams.get('date')
+  const passengers = searchParams.get('passengers')
+  const maxDistanceParam = searchParams.get('maxDistance')
+
   return (
     <UserLocationContext.Provider value={{ userLocation, setUserLocation }}>
       <div
@@ -244,7 +255,6 @@ export default function BookingPage() {
         }}
       >
         <div className="max-w-7xl mx-auto">
-          {/* Breadcrumb Navigation */}
           <nav
             aria-label="Breadcrumb"
             className="flex items-center text-sm mb-4 mt-6"
@@ -269,7 +279,6 @@ export default function BookingPage() {
             </span>
           </nav>
 
-          {/* Search Section */}
           <div
             className="mb-2 p-6"
             style={{
@@ -283,9 +292,134 @@ export default function BookingPage() {
             <SearchTrip onSearchResults={handleSearchResults} />
           </div>
 
-          {/* Main Content */}
+          {(pickup || dropoff || date || passengers || maxDistanceParam) && (
+            <div
+              className="mb-6 p-4 rounded-lg shadow-sm border"
+              style={{
+                backgroundColor: 'var(--card)',
+                borderColor: 'var(--border)',
+              }}
+            >
+              <h3 className="text-lg font-semibold mb-3 flex items-center">
+                <Filter className="w-5 h-5 mr-2 text-primary" />
+                Thông tin tìm kiếm
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {pickup && (
+                  <div
+                    className="p-3 rounded-md transition-all hover:bg-[var(--secondary-hover)]"
+                    style={{
+                      backgroundColor: 'var(--secondary)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <div className="flex items-start space-x-2">
+                      <MapPin className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Điểm đón
+                        </p>
+                        <p className="text-sm font-semibold break-words">
+                          {pickup}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {dropoff && (
+                  <div
+                    className="p-3 rounded-md transition-all hover:bg-[var(--secondary-hover)]"
+                    style={{
+                      backgroundColor: 'var(--secondary)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <div className="flex items-start space-x-2">
+                      <MapPin className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Điểm đến
+                        </p>
+                        <p className="text-sm font-semibold break-words">
+                          {dropoff}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {date && (
+                  <div
+                    className="p-3 rounded-md transition-all hover:bg-[var(--secondary-hover)]"
+                    style={{
+                      backgroundColor: 'var(--secondary)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <div className="flex items-start space-x-2">
+                      <Calendar className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Ngày đi
+                        </p>
+                        <p className="text-sm font-semibold">
+                          {new Date(date).toLocaleDateString('vi-VN', {
+                            weekday: 'short',
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {passengers && (
+                  <div
+                    className="p-3 rounded-md transition-all hover:bg-[var(--secondary-hover)]"
+                    style={{
+                      backgroundColor: 'var(--secondary)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <div className="flex items-start space-x-2">
+                      <Users className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Hành khách
+                        </p>
+                        <p className="text-sm font-semibold">
+                          {passengers} người
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {maxDistanceParam && (
+                  <div
+                    className="p-3 rounded-md transition-all hover:bg-[var(--secondary-hover)]"
+                    style={{
+                      backgroundColor: 'var(--secondary)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <div className="flex items-start space-x-2">
+                      <Move className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Khoảng cách
+                        </p>
+                        <p className="text-sm font-semibold">
+                          {maxDistanceParam} km
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col lg:flex-row gap-6">
-            {/* Filter Sidebar */}
             <div className="lg:w-1/4 space-y-4">
               <div
                 className="p-4 rounded-lg shadow-sm"
@@ -304,8 +438,6 @@ export default function BookingPage() {
                   />
                   Bộ lọc
                 </h3>
-
-                {/* Price Filter */}
                 <div className="mb-6">
                   <label
                     className="text-sm font-medium mb-2 block"
@@ -335,8 +467,6 @@ export default function BookingPage() {
                     <span>{priceRange[1].toLocaleString()} VNĐ</span>
                   </div>
                 </div>
-
-                {/* Seats Filter */}
                 <div className="mb-6">
                   <label
                     className="text-sm font-medium mb-2 block"
@@ -356,8 +486,6 @@ export default function BookingPage() {
                     }}
                   />
                 </div>
-
-                {/* Rating Filter */}
                 <div className="mb-6">
                   <label
                     className="text-sm font-medium mb-2 block"
@@ -389,8 +517,6 @@ export default function BookingPage() {
                     )}
                   </div>
                 </div>
-
-                {/* No Passengers Filter */}
                 <div className="mb-6">
                   <label
                     className="flex items-center text-sm font-medium"
@@ -407,10 +533,7 @@ export default function BookingPage() {
                 </div>
               </div>
             </div>
-
-            {/* Trips List */}
             <div className="lg:w-3/4 space-y-4">
-              {/* Sort and Results Header */}
               <div
                 className="p-4 rounded-lg shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
                 style={{
@@ -432,7 +555,6 @@ export default function BookingPage() {
                     ({filteredTrips.length} kết quả)
                   </span>
                 </h2>
-
                 <div className="w-full sm:w-auto">
                   <Select value={sortBy} onValueChange={setSortBy}>
                     <SelectTrigger
@@ -468,8 +590,6 @@ export default function BookingPage() {
                   </Select>
                 </div>
               </div>
-
-              {/* No Results */}
               {!loading && filteredTrips.length === 0 && (
                 <div
                   className="bg-red-50 text-red-700 p-6 rounded-lg border border-red-100 flex flex-col items-center justify-center py-12"
@@ -498,8 +618,6 @@ export default function BookingPage() {
                   </p>
                 </div>
               )}
-
-              {/* Results List */}
               {!loading && filteredTrips.length > 0 && (
                 <div className="grid gap-4">
                   {filteredTrips.map((trip, index) => (
