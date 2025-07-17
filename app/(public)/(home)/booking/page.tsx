@@ -156,6 +156,27 @@ export default function BookingPage() {
       setLoading(false)
     }
   }
+  const haversineDistance = (lat1: any, lon1: any, lat2: any, lon2: any) => {
+    const toRad = (deg: any) => deg * (Math.PI / 180)
+    const R = 6371
+    const dLat = toRad(lat2 - lat1)
+    const dLon = toRad(lon2 - lon1)
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  }
+
+  const pointToPathDistance = (point: any, pathCoords: any): any => {
+    if (!point || !Array.isArray(pathCoords) || pathCoords.length < 1)
+      return null
+    let minDist = Infinity
+    for (const [lon, lat] of pathCoords) {
+      const dist = haversineDistance(point[1], point[0], lat, lon)
+      if (dist < minDist) minDist = dist
+    }
+    return minDist
+  }
 
   const filteredTrips = useMemo(() => {
     let filtered = trips
@@ -165,13 +186,11 @@ export default function BookingPage() {
           if (
             departure.pickupCoords &&
             validatePickupCoords(departure.pickupCoords) &&
-            trip.path?.coordinates?.length > 0 &&
-            trip.path.coordinates.every(validateCoordinates)
+            trip.simplifiedPath?.coordinates?.length >= 2
           ) {
-            userDistanceToRoute = pointToLineDistance(
-              point([departure.pickupCoords.lng, departure.pickupCoords.lat]),
-              lineString(trip.path.coordinates),
-              { units: 'kilometers' }
+            userDistanceToRoute = pointToPathDistance(
+              [departure.pickupCoords.lng, departure.pickupCoords.lat],
+              trip.simplifiedPath.coordinates.filter(validateCoordinates)
             )
           }
         } catch (error) {
@@ -179,9 +198,9 @@ export default function BookingPage() {
         }
         return { ...trip, userDistanceToRoute }
       })
-      .filter(
-        (trip) => trip.price >= priceRange[0] && trip.price <= priceRange[1]
-      )
+      // .filter(
+      //   (trip) => trip.price >= priceRange[0] && trip.price <= priceRange[1]
+      // )
       .filter((trip) => trip.seatsAvailable >= minSeats)
       .filter((trip) => trip.userId.averageRating >= minRating)
       .filter((trip) => !noPassengers || trip.passengerCount === 0)
@@ -352,7 +371,6 @@ export default function BookingPage() {
                     }}
                   >
                     <div className="flex items-center">
-                      <MapPin className="w-5 h-5 mr-2 text-blue-500" />
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">
                           Điểm đón
@@ -372,7 +390,6 @@ export default function BookingPage() {
                     }}
                   >
                     <div className="flex items-center">
-                      <MapPin className="w-5 h-5 mr-2 text-green-500" />
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">
                           Điểm đến
@@ -392,7 +409,6 @@ export default function BookingPage() {
                     }}
                   >
                     <div className="flex items-center">
-                      <Calendar className="w-5 h-5 mr-2 text-purple-500" />
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">
                           Ngày đi
@@ -419,7 +435,6 @@ export default function BookingPage() {
                     }}
                   >
                     <div className="flex items-center">
-                      <Users className="w-5 h-5 mr-2 text-orange-500" />
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">
                           Hành khách
@@ -439,10 +454,9 @@ export default function BookingPage() {
                     }}
                   >
                     <div className="flex items-center">
-                      <Move className="w-5 h-5 mr-2 text-yellow-500" />
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">
-                          Khoảng cách
+                          Khoảng cách tìm kiếm
                         </p>
                         <p className="font-medium">{maxDistanceParam} m</p>
                       </div>
@@ -476,7 +490,7 @@ export default function BookingPage() {
                 </h3>
 
                 {/* Price Filter */}
-                <div className="mb-6">
+                {/* <div className="mb-6">
                   <label
                     className="text-sm font-medium mb-2 block"
                     style={{ color: 'var(--foreground)' }}
@@ -504,7 +518,7 @@ export default function BookingPage() {
                     <span>{priceRange[0].toLocaleString()} VNĐ</span>
                     <span>{priceRange[1].toLocaleString()} VNĐ</span>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Seats Filter */}
                 <div className="mb-6">

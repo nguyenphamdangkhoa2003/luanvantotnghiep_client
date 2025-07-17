@@ -47,13 +47,14 @@ const schema = z.object({
       },
       { message: 'Ngày khởi hành không được nhỏ hơn ngày hiện tại' }
     ),
+
   passengers: z
     .number({
       required_error: 'Vui lòng nhập số người',
       invalid_type_error: 'Vui lòng nhập số người',
     })
     .min(1, 'Số người ít nhất là 1')
-    .max(4, 'Tối đa 4 người'),
+    .max(6, 'Tối đa 6 người'),
   maxDistance: z
     .number({
       required_error: 'Vui lòng nhập khoảng cách tối đa',
@@ -89,7 +90,7 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
       dropoff: '',
       date: format(new Date(), 'yyyy-MM-dd'),
       passengers: 1,
-      maxDistance: 1, // Default to max allowed distance
+      maxDistance: 1,
     },
   })
   const [pickupQuery, setPickupQuery] = useState('')
@@ -277,7 +278,7 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
         endCoords: dropoffCoords || undefined,
         date: data.date,
         seatsAvailable: data.passengers,
-        maxDistance: data.maxDistance, 
+        maxDistance: data.maxDistance,
       }
       console.log(searchData)
       const response = await searchRoutesQueryFn(searchData)
@@ -360,7 +361,11 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
   }, [dateValue, setValue])
 
   const hasErrors =
-    errors.pickup || errors.dropoff || errors.date || errors.passengers || errors.maxDistance
+    errors.pickup ||
+    errors.dropoff ||
+    errors.date ||
+    errors.passengers ||
+    errors.maxDistance
 
   return (
     <div className="flex flex-col items-center mt-5 px-4">
@@ -589,7 +594,7 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
                 {...register('passengers', {
                   valueAsNumber: true,
                   min: 1,
-                  max: 4,
+                  max: 6,
                 })}
                 className="pl-10 h-11 rounded-lg border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] transition-all"
               />
@@ -624,7 +629,6 @@ function SearchTrip({ onSearchResults }: SearchTripProps) {
               </p>
             )}
           </div>
-          
         </div>
         <div className="lg:pt-2 pt-0 ">
           <div className="flex items-end justify-center">

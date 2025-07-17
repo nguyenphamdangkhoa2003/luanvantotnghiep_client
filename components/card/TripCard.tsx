@@ -178,42 +178,78 @@ export default function TripCard(trip: TripCardProps) {
   const [showMap, setShowMap] = useState(false)
   const maxdistance = trip.maxPickupDistance
   const departure = useMemo(() => {
-    try {
-      const stored = localStorage.getItem('searchTripForm')
-      const parsed = stored ? JSON.parse(stored) : {}
-      if (!validatePickupCoords(parsed.pickupCoords)) {
-        console.warn(
-          'Invalid pickupCoords in searchTripForm:',
-          parsed.pickupCoords
-        )
-        return { ...parsed, pickupCoords: null }
-      }
-      return parsed
-    } catch (error) {
-      console.error('Error parsing searchTripForm:', error)
-      return {}
+    const stored = localStorage.getItem('searchTripForm')
+    const parsed = stored ? JSON.parse(stored) : {}
+    if (!validatePickupCoords(parsed.pickupCoords)) {
+      return { ...parsed, pickupCoords: null }
     }
+    return parsed
   }, [])
+  const destination = useMemo(() => {
+    const stored = localStorage.getItem('searchTripForm')
+    const parsed = stored ? JSON.parse(stored) : {}
+    if (!validatePickupCoords(parsed.dropoffCoords)) {
+      return { ...parsed, dropoffCoords: null }
+    }
+    return parsed
+  }, [])
+  // Simplify tuyến đường 1 lần
+  const optimizedLine = useMemo(() => {
+    try {
+      if (
+        trip.path?.coordinates?.length > 0 &&
+        trip.path.coordinates.every(validateCoordinates)
+      ) {
+        return simplify(lineString(trip.path.coordinates), {
+          tolerance: 0.000005,
+          highQuality: false,
+        })
+      }
+    } catch (err) {
+      console.error('Error simplifying line', err)
+    }
+    return null
+  }, [trip.path?.coordinates, trip._id])
 
   const userDistanceToRoute = useMemo(() => {
     try {
       if (
         departure.pickupCoords &&
         validatePickupCoords(departure.pickupCoords) &&
-        trip.simplifiedPath?.coordinates?.length > 0 &&
-        trip.simplifiedPath.coordinates.every(validateCoordinates)
+        optimizedLine
       ) {
         return pointToLineDistance(
           point([departure.pickupCoords.lng, departure.pickupCoords.lat]),
-          lineString(trip.simplifiedPath.coordinates),
+          optimizedLine,
           { units: 'kilometers' }
         )
       }
       return null
     } catch (error) {
+      console.error('Error calculating distance to route', error)
       return null
     }
-  }, [departure.pickupCoords, trip.simplifiedPath?.coordinates, trip._id])
+  }, [departure.pickupCoords, optimizedLine])
+
+  const destinationDistanceToRoute = useMemo(() => {
+    try {
+      if (
+        destination.dropoffCoords &&
+        validatePickupCoords(destination.dropoffCoords) &&
+        optimizedLine
+      ) {
+        return pointToLineDistance(
+          point([destination.dropoffCoords.lng, destination.dropoffCoords.lat]),
+          optimizedLine,
+          { units: 'kilometers' }
+        )
+      }
+      return null
+    } catch (error) {
+      console.error('Error calculating distance to route', error)
+      return null
+    }
+  }, [destination.dropoffCoords, optimizedLine])
 
   // Filter intermediate waypoints (exclude first and last)
   const intermediateWaypoints = trip.waypoints.filter(
@@ -425,7 +461,7 @@ export default function TripCard(trip: TripCardProps) {
             <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-md">
               <MapPin className="w-4 h-4 text-blue-600" />
               <span className="text-sm font-medium text-gray-700">
-                Cách điểm bạn đặt{' '}
+                Cách điểm đón bạn đặt{' '}
                 {userDistanceToRoute !== null
                   ? userDistanceToRoute < 1
                     ? `${(userDistanceToRoute * 1000).toFixed(0)} m`
@@ -433,7 +469,17 @@ export default function TripCard(trip: TripCardProps) {
                   : 'N/A'}
               </span>
             </div>
-
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-md">
+              <MapPin className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-medium text-gray-700">
+                Cách điểm đến bạn đặt{' '}
+                {destinationDistanceToRoute !== null
+                  ? destinationDistanceToRoute < 1
+                    ? `${(destinationDistanceToRoute * 1000).toFixed(0)} m`
+                    : `${destinationDistanceToRoute.toFixed(2)} km`
+                  : 'N/A'}
+              </span>
+            </div>
             <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-md">
               <Users className="w-4 h-4 text-blue-600" />
               <span className="text-sm font-medium text-gray-700">
@@ -549,7 +595,20 @@ export default function TripCard(trip: TripCardProps) {
                                 </div>
                               </Marker>
                             )}
-                          {userLocation && (
+                          {destination.pickupCoords &&
+                            validatePickupCoords(destination.dropoffCoords) && (
+                              <Marker
+                                longitude={destination.dropoffCoords.lng}
+                                latitude={destination.dropoffCoords.lat}
+                                anchor="bottom"
+                              >
+                                <div className="relative">
+                                  <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-md"></div>
+                                  <div className="absolute inset-0 animate-ping bg-blue-500 rounded-full opacity-75"></div>
+                                </div>
+                              </Marker>
+                            )}
+                          {/* {userLocation && (
                             <Marker
                               longitude={userLocation.lng}
                               latitude={userLocation.lat}
@@ -560,7 +619,7 @@ export default function TripCard(trip: TripCardProps) {
                                 <div className="absolute inset-0 animate-ping bg-blue-500 rounded-full opacity-75"></div>
                               </div>
                             </Marker>
-                          )}
+                          )} */}
                           {/* Start Marker (Điểm đầu) */}
                           <Marker
                             longitude={trip.startPoint.coordinates[0]}
@@ -568,7 +627,7 @@ export default function TripCard(trip: TripCardProps) {
                             anchor="center"
                           >
                             <div className="relative">
-                              <div className="w-7 h-7 rounded-full border-2 shadow-lg bg-blue-500 border-white">
+                              <div className="w-7 h-7 rounded-full border-2 shadow-lg bg-green-500 border-white">
                                 <span className="sr-only">Điểm đầu</span>
                               </div>
                               <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-md shadow-sm text-sm font-medium bg-white text-gray-900">

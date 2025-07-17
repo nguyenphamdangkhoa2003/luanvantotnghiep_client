@@ -5,7 +5,15 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { LogIn, Menu, X, Bell, Loader2, Package2, Package2Icon } from 'lucide-react'
+import {
+  LogIn,
+  Menu,
+  X,
+  Bell,
+  Loader2,
+  Package2,
+  Package2Icon,
+} from 'lucide-react'
 import {
   MdOutlineAdminPanelSettings,
   MdCalendarToday,
@@ -98,13 +106,13 @@ const Header = () => {
 
   const isDriver = user?.role === RoleEnum.DRIVER
 
-  // Query lấy danh sách requests (cho tài xế)
+  // Query lấy danh sách requests (chỉ cho tài xế)
   const { data: requestResponse, isLoading: isRequestsLoading } =
     useQuery<RequestApiResponse>({
       queryKey: ['requests', user?._id],
       queryFn: () => getRequestsByDriverIdQueryFn(user!._id),
       enabled: !!user?._id && isSuccess && isDriver,
-      staleTime: 5 * 60 * 1000, // 5 phút
+      staleTime: 5 * 60 * 1000,
       refetchOnWindowFocus: false,
       refetchOnMount: true,
     })
@@ -122,7 +130,7 @@ const Header = () => {
           ? getRoutesByDriverQueryFn(user!._id)
           : getRoutesByPassengerQueryFn(user!._id),
       enabled: !!user?._id && isSuccess,
-      staleTime: 5 * 60 * 1000, // 5 phút
+      staleTime: 5 * 60 * 1000,
       refetchOnWindowFocus: false,
       refetchOnMount: true,
     })
@@ -140,7 +148,7 @@ const Header = () => {
         ? getRequestsByDriverIdQueryFn(user!._id)
         : getRequestsByUserIdQueryFn(user!._id),
     enabled: !!user?._id && isSuccess,
-    staleTime: 5 * 60 * 1000, // 5 phút
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: true,
   })
@@ -172,7 +180,7 @@ const Header = () => {
       return Promise.all(promises)
     },
     enabled: completedRequests.length > 0 && !!user?._id && isSuccess,
-    staleTime: 5 * 60 * 1000, // 5 phút
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: true,
   })
@@ -283,14 +291,17 @@ const Header = () => {
     .flat()
     .slice(0, 3) // Giới hạn tối đa 3 thông báo đánh giá
 
-  // Tạo danh sách thông báo cho phần "Yêu cầu mới"
-  const requestNotifications = sortedPendingRequests
-    .map((req) => ({ type: 'request' as const, data: req }))
-    .slice(0, 3) // Giới hạn tối đa 3 yêu cầu mới
+  // Tạo danh sách thông báo cho phần "Yêu cầu mới" (chỉ cho tài xế)
+  const requestNotifications = isDriver
+    ? sortedPendingRequests
+        .map((req) => ({ type: 'request' as const, data: req }))
+        .slice(0, 3) // Giới hạn tối đa 3 yêu cầu mới
+    : []
 
   // Tổng số thông báo để hiển thị badge
-  const totalNotifications =
-    requestNotifications.length + reviewNotifications.length
+  const totalNotifications = isDriver
+    ? requestNotifications.length + reviewNotifications.length
+    : reviewNotifications.length // Chỉ tính reviewNotifications cho hành khách
 
   return (
     <nav
@@ -391,7 +402,7 @@ const Header = () => {
                   </DropdownMenuItem>
                 ) : totalNotifications > 0 ? (
                   <>
-                    {/* Phần Yêu cầu mới */}
+                    {/* Phần Yêu cầu mới - chỉ hiển thị cho tài xế */}
                     {isDriver && requestNotifications.length > 0 && (
                       <>
                         <div className="px-4 py-2 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
@@ -926,7 +937,7 @@ const Header = () => {
                         <span>Quản lý tuyến đường</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => router.push('/tripmanage')}
+                        onClick={() => router.push('/driverpass')}
                         className={cn(
                           'flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)]',
                           'hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] hover:shadow-sm',

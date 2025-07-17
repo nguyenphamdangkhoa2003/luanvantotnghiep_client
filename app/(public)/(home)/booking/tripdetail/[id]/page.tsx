@@ -161,7 +161,7 @@ const TripDetails = () => {
   const hasRequested = requests.some(
     (request: any) =>
       request.routeId._id === tripId &&
-      (request.status === 'accepted' || request.status === 'completed')
+      (request.status === 'pending' || request.status === 'completed')
   )
 
   if (!tripId || isTripLoading || (userId && isRequestsLoading)) {
