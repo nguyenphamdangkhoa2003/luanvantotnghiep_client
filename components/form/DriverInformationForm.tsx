@@ -144,7 +144,8 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
   const uploadIdentityMutation = useMutation({
     mutationFn: uploadDocumentMutationFn,
     onError: (error) => {
-      toast.error(error.message || 'Tải lên giấy tờ tùy thân thất bại.')
+      console.log(error)
+      toast.error('Tải lên giấy tờ tùy thân thất bại.')
     },
     onSuccess: async () => {
       toast.success('Gửi giấy tờ tùy thân thành công.')
@@ -182,10 +183,6 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
     file: File
   ) => {
     try {
-      const allowedMimes = ['image/jpeg', 'image/png', 'application/pdf']
-      if (!allowedMimes.includes(file.type)) {
-        throw new Error('Chỉ chấp nhận file JPEG, PNG hoặc PDF')
-      }
       identityForm.setValue(fieldName, file, { shouldValidate: true })
     } catch (error: any) {
       identityForm.setError(fieldName, {
@@ -201,10 +198,6 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
     file: File
   ) => {
     try {
-      const allowedMimes = ['image/jpeg', 'image/png', 'application/pdf']
-      if (!allowedMimes.includes(file.type)) {
-        throw new Error('Chỉ chấp nhận file JPEG, PNG hoặc PDF')
-      }
       licenseForm.setValue(fieldName, file, { shouldValidate: true })
     } catch (error: any) {
       licenseForm.setError(fieldName, {
@@ -386,11 +379,10 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                                   <p className="text-sm text-gray-500 text-center">
                                     <span className="font-medium text-primary">
                                       Nhấn để tải lên
-                                    </span>{' '}
-                                    hoặc kéo thả file vào đây
+                                    </span>
                                   </p>
                                   <p className="text-xs text-gray-400 mt-1">
-                                    Định dạng: JPEG, PNG, PDF
+                                    Định dạng: JPEG, PNG
                                   </p>
                                 </div>
                               )}
@@ -407,7 +399,6 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                                     )
                                   }
                                 }}
-                                accept="image/jpeg,image/png,application/pdf"
                                 disabled={isSubmittingIdentity}
                               />
                             </label>
@@ -484,11 +475,10 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                                   <p className="text-sm text-gray-500 text-center">
                                     <span className="font-medium text-primary">
                                       Nhấn để tải lên
-                                    </span>{' '}
-                                    hoặc kéo thả file vào đây
+                                    </span>
                                   </p>
                                   <p className="text-xs text-gray-400 mt-1">
-                                    Định dạng: JPEG, PNG, PDF
+                                    Định dạng: JPEG, PNG
                                   </p>
                                 </div>
                               )}
@@ -505,7 +495,6 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                                     )
                                   }
                                 }}
-                                accept="image/jpeg,image/png,application/pdf"
                                 disabled={isSubmittingIdentity}
                               />
                             </label>
@@ -652,11 +641,10 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                                   <p className="text-sm text-gray-500 text-center">
                                     <span className="font-medium text-primary">
                                       Nhấn để tải lên
-                                    </span>{' '}
-                                    hoặc kéo thả file vào đây
+                                    </span>
                                   </p>
                                   <p className="text-xs text-gray-400 mt-1">
-                                    Định dạng: JPEG, PNG, PDF
+                                    Định dạng: JPEG, PNG
                                   </p>
                                 </div>
                               )}
@@ -673,7 +661,6 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                                     )
                                   }
                                 }}
-                                accept="image/jpeg,image/png,application/pdf"
                                 disabled={isSubmittingLicense}
                               />
                             </label>
@@ -748,11 +735,10 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                                   <p className="text-sm text-gray-500 text-center">
                                     <span className="font-medium text-primary">
                                       Nhấn để tải lên
-                                    </span>{' '}
-                                    hoặc kéo thả file vào đây
+                                    </span>
                                   </p>
                                   <p className="text-xs text-gray-400 mt-1">
-                                    Định dạng: JPEG, PNG, PDF
+                                    Định dạng: JPEG, PNG
                                   </p>
                                 </div>
                               )}
@@ -769,7 +755,6 @@ export function DriverInfoForm({ userData, refetch }: DriverInfoFormProps) {
                                     )
                                   }
                                 }}
-                                accept="image/jpeg,image/png,application/pdf"
                                 disabled={isSubmittingLicense}
                               />
                             </label>

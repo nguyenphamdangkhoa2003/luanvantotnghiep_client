@@ -72,10 +72,8 @@ export default function UserProfilePage() {
     currentUser?.vehicles.every(
       (vehicle: any) => vehicle.verificationStatus === 'approved'
     )
-  const hasDataToVerify =
-    currentUser && (currentUser.identityDocument || currentUser.driverLicense)
   const isFullyVerified =
-    hasDataToVerify && isIdentityVerified && isDriverLicenseVerified
+     isIdentityVerified && isDriverLicenseVerified
 
   useEffect(() => {
     if (

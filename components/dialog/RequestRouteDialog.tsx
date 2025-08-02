@@ -30,7 +30,7 @@ export function RouteRequestDialog({
 }: RouteRequestDialogProps) {
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState('')
-  const [seats, setSeats] = useState(initialSeats) // Manage seats in state
+  const [seats, setSeats] = useState(initialSeats) 
 
   const mutation = useMutation({
     mutationFn: requestRouteMutationFn,
@@ -38,7 +38,7 @@ export function RouteRequestDialog({
       toast.success('Gửi yêu cầu đặt tuyến đường thành công')
       setOpen(false)
       setMessage('')
-      setSeats(initialSeats) // Reset seats after success
+      setSeats(initialSeats) 
     },
     onError: (error) => {
       toast.error(error.message || 'Gửi yêu cầu thất bại')
@@ -58,11 +58,10 @@ export function RouteRequestDialog({
   const handleSeatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     const numValue = parseInt(value, 10)
-    // Only update if the value is a valid number and within the maxseat limit
     if (!isNaN(numValue) && numValue >= 1 && numValue <= maxseat) {
       setSeats(numValue)
     } else if (value === '') {
-      setSeats(1) // Default to 1 if input is cleared
+      setSeats(1)
     }
   }
 

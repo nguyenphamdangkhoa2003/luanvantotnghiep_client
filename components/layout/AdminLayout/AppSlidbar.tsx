@@ -1,6 +1,13 @@
 'use client'
 import * as React from 'react'
-import { LayoutDashboardIcon, Users, Settings,Car,Package, Star } from 'lucide-react'
+import {
+  LayoutDashboardIcon,
+  Users,
+  Settings,
+  Car,
+  Package,
+  Star,
+} from 'lucide-react'
 import { NavMain } from './NavMain'
 import { NavUser } from './NavUser'
 import {
@@ -33,11 +40,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const data = {
     navMain: [
       {
-        title: 'Bảng điều khiển',
-        url: '/admin/dashboard',
-        icon: LayoutDashboardIcon,
-      },
-      {
         title: 'Người dùng',
         url: '/admin/users',
         icon: Users,
@@ -57,11 +59,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         url: '/admin/reviews',
         icon: Star,
       },
-      // {
-      //   title: 'Settings',
-      //   url: '/admin/settings',
-      //   icon: Settings,
-      // },
     ],
   }
 
@@ -77,7 +74,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     >
       <SidebarHeader className="px-4 py-4">
         <SidebarMenu>
-          <Link href="/admin" className="flex items-center justify-center gap-2">
+          <Link
+            href="/admin"
+            className="flex items-center justify-center gap-2"
+          >
             <Logo width="160" height="40" fill="var(--primary)" />
           </Link>
           <SidebarMenuItem>

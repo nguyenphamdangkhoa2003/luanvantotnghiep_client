@@ -1,9 +1,7 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Mail, Phone } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 export default function TermsOfService() {
   return (
@@ -18,13 +16,11 @@ export default function TermsOfService() {
           {/* Section 1: Chấp Nhận Điều Khoản */}
           <div className="space-y-4">
             <h2 className="text-2xl font-bold">1. Chấp Nhận Điều Khoản</h2>
-            <ul className="list-disc pl-6 space-y-2 text-base">
-              <li>
-                Bằng việc đăng ký và sử dụng XeShare, bạn xác nhận đã đọc, hiểu
-                và đồng ý bị ràng buộc bởi các điều khoản này.
-              </li>
-              <li>Nếu không đồng ý, vui lòng ngưng sử dụng dịch vụ.</li>
-            </ul>
+            <p className="text-base leading-relaxed">
+              Bằng việc đăng ký và sử dụng nền tảng XeShare, bạn xác nhận đã
+              đọc, hiểu và đồng ý bị ràng buộc bởi các điều khoản dưới đây. Nếu
+              không đồng ý, vui lòng ngừng sử dụng dịch vụ.
+            </p>
           </div>
 
           {/* Section 2: Tài Khoản & Nghĩa Vụ Người Dùng */}
@@ -33,27 +29,26 @@ export default function TermsOfService() {
               2. Tài Khoản & Nghĩa Vụ Người Dùng
             </h2>
             <ul className="list-disc pl-6 space-y-2 text-base">
+              <li>Người dùng phải cung cấp thông tin chính xác khi đăng ký.</li>
               <li>
-                Người dùng phải cung cấp thông tin chính xác, chịu trách nhiệm
-                bảo mật tài khoản.
+                Người dùng chịu trách nhiệm bảo mật tài khoản cá nhân, không
+                chia sẻ cho bên thứ ba.
               </li>
-              <li>Không được chia sẻ thông tin đăng nhập cho bên thứ ba.</li>
+              <li>
+                Tài xế phải xác minh danh tính và phương tiện trước khi đăng
+                tuyến.
+              </li>
             </ul>
           </div>
 
-          {/* Section 3: Dịch Vụ XeShare */}
+          {/* Section 3: Bản Chất Dịch Vụ */}
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold">3. Dịch Vụ XeShare</h2>
-            <ul className="list-disc pl-6 space-y-2 text-base">
-              <li>
-                XeShare cung cấp nền tảng trung gian kết nối, không trực tiếp
-                cung cấp dịch vụ vận chuyển.
-              </li>
-              <li>
-                Tài xế và hành khách tự thỏa thuận giá, thời gian, địa điểm
-                đón/trả.
-              </li>
-            </ul>
+            <h2 className="text-2xl font-bold">3. Bản Chất Dịch Vụ</h2>
+            <p className="text-base leading-relaxed">
+              XeShare là nền tảng trung gian kết nối giữa tài xế và hành khách.
+              Không cung cấp dịch vụ vận tải thương mại. Tài xế và hành khách tự
+              thỏa thuận giá, thời gian và điểm đón/trả.
+            </p>
           </div>
 
           {/* Section 4: Hành Vi Bị Cấm */}
@@ -61,14 +56,10 @@ export default function TermsOfService() {
             <h2 className="text-2xl font-bold">4. Hành Vi Bị Cấm</h2>
             <ul className="list-disc pl-6 space-y-2 text-base">
               <li>
-                Sử dụng XeShare để cung cấp dịch vụ vận tải thương mại (VD: xe
-                biển vàng, xe hợp đồng).
+                Dùng nền tảng để vận tải thương mại (xe biển vàng, xe hợp đồng).
               </li>
-              <li>Tạo tài khoản giả, cung cấp thông tin sai sự thật.</li>
-              <li>
-                Quấy rối, spam, phát tán mã độc, gây thiệt hại cho hệ thống hoặc
-                người dùng khác.
-              </li>
+              <li>Tạo tài khoản giả, thông tin sai sự thật.</li>
+              <li>Spam, phát tán mã độc, quấy rối người dùng khác.</li>
             </ul>
           </div>
 
@@ -76,76 +67,64 @@ export default function TermsOfService() {
           <div className="space-y-4">
             <h2 className="text-2xl font-bold">5. Trách Nhiệm & Miễn Trừ</h2>
             <p className="text-base leading-relaxed">
-              XeShare không chịu trách nhiệm cho:
-            </p>
-            <ul className="list-disc pl-6 space-y-2 text-base">
-              <li>
-                Tai nạn, thiệt hại tài sản, thương tích xảy ra trong quá trình
-                đi chung.
-              </li>
-              <li>
-                Sự chậm trễ hoặc vi phạm thỏa thuận giữa tài xế & hành khách.
-              </li>
-            </ul>
-            <p className="text-base leading-relaxed">
-              Người dùng tự chịu trách nhiệm kiểm tra thông tin, giữ liên lạc và
-              đảm bảo an toàn cá nhân.
+              XeShare không chịu trách nhiệm cho tai nạn, thương tích, mất mát,
+              trễ giờ hay mâu thuẫn giữa tài xế và hành khách. Người dùng phải
+              tự đảm bảo an toàn cá nhân.
             </p>
           </div>
 
-          {/* Section 6: Thanh Toán Gói Dịch Vụ */}
+          {/* Section 6: Gói Dịch Vụ */}
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold">6. Thanh Toán Gói Dịch Vụ</h2>
+            <h2 className="text-2xl font-bold">6. Gói Dịch Vụ</h2>
+            <p className="text-base leading-relaxed">
+              Tài xế có thể mua gói để mở rộng tính năng. Phí không hoàn lại trừ
+              khi có lỗi hệ thống. XeShare có quyền điều chỉnh chính sách gói &
+              giá, có thông báo trước.
+            </p>
+          </div>
+
+          {/* Section 7: Bảo Hiểm & Pháp Luật */}
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold">
+              7. Bảo Hiểm & Quy Định Pháp Luật
+            </h2>
             <ul className="list-disc pl-6 space-y-2 text-base">
-              <li>
-                Tài xế có thể mua gói để mở rộng tính năng. Phí đã thanh toán
-                không hoàn lại, trừ khi lỗi hệ thống gây thiệt hại rõ rệt.
-              </li>
-              <li>
-                XeShare có quyền điều chỉnh giá, chính sách gói và sẽ thông báo
-                trước.
-              </li>
+              <li>Tài xế cần có bảo hiểm trách nhiệm dân sự còn hiệu lực.</li>
+              <li>Khuyến khích tham gia bảo hiểm tai nạn cho hành khách.</li>
+              <li>Mọi hoạt động phải tuân thủ luật Giao thông Việt Nam.</li>
             </ul>
           </div>
 
-          {/* Section 7: Xử Lý Vi Phạm */}
+          {/* Section 8: Xử Lý Vi Phạm */}
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold">7. Xử Lý Vi Phạm</h2>
-            <ul className="list-disc pl-6 space-y-2 text-base">
-              <li>
-                XeShare có quyền khóa tài khoản vi phạm mà không cần báo trước
-                nếu phát hiện vi phạm điều khoản.
-              </li>
-              <li>Không hoàn tiền với trường hợp khóa do vi phạm.</li>
-            </ul>
-          </div>
-
-          {/* Section 8: Giải Quyết Tranh Chấp */}
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold">8. Giải Quyết Tranh Chấp</h2>
+            <h2 className="text-2xl font-bold">8. Xử Lý Vi Phạm</h2>
             <p className="text-base leading-relaxed">
-              Mọi tranh chấp trước tiên sẽ được thương lượng. Nếu không thành,
-              sẽ được giải quyết tại Tòa án có thẩm quyền tại TP.HCM, tuân theo
-              luật Việt Nam.
+              XeShare có quyền khoá tài khoản vi phạm mà không cần báo trước.
+              Không hoàn tiền với trường hợp bị khóa do vi phạm.
             </p>
           </div>
 
-          {/* Section 9: Thay Đổi Điều Khoản */}
+          {/* Section 9: Giải Quyết Tranh Chấp */}
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold">9. Thay Đổi Điều Khoản</h2>
+            <h2 className="text-2xl font-bold">9. Giải Quyết Tranh Chấp</h2>
             <p className="text-base leading-relaxed">
-              XeShare có quyền sửa đổi điều khoản bất cứ lúc nào. Các sửa đổi sẽ
-              có hiệu lực kể từ khi đăng trên website. Việc tiếp tục sử dụng
-              dịch vụ sau khi thay đổi đồng nghĩa chấp nhận điều khoản mới.
+              Tranh chấp sẽ được thương lượng trước. Nếu không thành, sẽ đưa ra
+              Tòa án tại TP.HCM theo pháp luật Việt Nam.
             </p>
           </div>
 
-          {/* Contact Section */}
+          {/* Section 10: Thay Đổi Điều Khoản */}
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold">Liên Hệ</h2>
+            <h2 className="text-2xl font-bold">10. Thay Đổi Điều Khoản</h2>
             <p className="text-base leading-relaxed">
-              Mọi câu hỏi hoặc yêu cầu về dịch vụ, vui lòng liên hệ:
+              XeShare có thể sửa đổi điều khoản bất cứ lúc nào. Tiếp tục sử dụng
+              dịch vụ nghĩa là bạn đồng ý với các điều khoản đã cập nhật.
             </p>
+          </div>
+
+          {/* Section 11: Liên Hệ */}
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold">11. Liên Hệ</h2>
             <ul className="list-none pl-0 space-y-3 text-base">
               <li className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-[var(--primary)]" />
@@ -161,16 +140,6 @@ export default function TermsOfService() {
                 <span>1900.xxx.xxx</span>
               </li>
             </ul>
-          </div>
-
-          {/* Contact Button */}
-          <div className="pt-4">
-            <Button
-              asChild
-              className="w-full sm:w-auto bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary)]/90"
-            >
-              <a href="mailto:support@xeshare.vn">Liên Hệ Hỗ Trợ</a>
-            </Button>
           </div>
         </CardContent>
       </Card>

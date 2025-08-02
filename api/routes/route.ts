@@ -84,7 +84,24 @@ export const completeTripMutationFn = async (data: CompleteTripType) => {
 }
 
 export const getRoutesByDriverQueryFn = async (userId: string) => {
-  return await API.get(`/routes/driver/${userId}`)
+  const response = await API.get(`/routes/driver/${userId}`)
+  const routes = response.data || []
+
+  const routesWithPassengerCount = await Promise.all(
+    routes.map(async (route: any) => {
+      try {
+        const passengerResponse = await getPassengersQueryFn({
+          routeId: route._id,
+        })
+        const passengerCount = passengerResponse.data?.length || 0
+        return { ...route, seat: passengerCount }
+      } catch (error) {
+        return { ...route, seat: 0 }
+      }
+    })
+  )
+
+  return { ...response, data: routesWithPassengerCount }
 }
 
 export const getRoutesByPassengerQueryFn = async (userId: string) => {

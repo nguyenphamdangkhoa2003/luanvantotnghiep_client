@@ -26,7 +26,6 @@ import {
   getRoutesByDriverQueryFn,
   deleteRouteMutationFn,
 } from '@/api/routes/route'
-import { format } from 'date-fns'
 import CloneRouteForm from '@/components/form/CloneTripForm'
 
 interface Route {
@@ -52,7 +51,8 @@ interface Route {
   seatsAvailable?: number
   price?: number
   maxPickupDistance: number
-  isNegotiable:boolean
+  isNegotiable: boolean
+  seat: number // Ensure seat is included in the Route interface
 }
 
 const formatAddress = (name: string): string => {
@@ -77,7 +77,8 @@ const TripManage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(5)
   const { user, isLoading: isAuthLoading } = useAuthContext()
-  const [isCloneDialogOpen, setIsCloneDialogOpen]=useState(false)
+  const [isCloneDialogOpen, setIsCloneDialogOpen] = useState(false)
+
   const {
     data: routes = [],
     isLoading,
@@ -143,10 +144,11 @@ const TripManage: React.FC = () => {
         price: route.price,
         maxPickupDistance: route.maxPickupDistance,
         isNegotiable: route.isNegotiable,
+        seat: route.seat ?? 0, // Include seat, default to 0 if undefined
       }))
     },
   })
-console.log(routes)
+
   const deleteMutation = useMutation({
     mutationFn: deleteRouteMutationFn,
     onSuccess: () => {

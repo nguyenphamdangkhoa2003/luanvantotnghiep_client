@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "set PORT=3001 &&  next dev --turbopack",
     "build": "next build",
     "start": "next start"
   },
@@ -36,7 +36,6 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.9.2",
-    "input-otp": "^1.4.2",
     "js-cookie": "^3.0.5",
     "lodash": "^4.17.21",
     "lucide-react": "^0.503.0",

@@ -30,7 +30,7 @@ interface Route {
   routeName: string
   startPoint: string
   endPoint: string
-  seat:number
+  seat: number
   status: 'active' | 'pending' | 'cancelled'
   waypoints?: { name: string; _id: string }[]
 }
@@ -88,6 +88,9 @@ const RouteTable: React.FC<RouteTableProps> = ({
             </TableHead>
             <TableHead className="font-semibold text-gray-700">
               Điểm kết thúc
+            </TableHead>
+            <TableHead className="font-semibold text-gray-700">
+              Số khách đặt chỗ
             </TableHead>
             <TableHead className="font-semibold text-gray-700">
               Trạng thái
@@ -149,7 +152,7 @@ const RouteTable: React.FC<RouteTableProps> = ({
                         {route.startPoint}
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent >
+                    <TooltipContent>
                       <p>{route.startPoint}</p>
                     </TooltipContent>
                   </Tooltip>
@@ -163,12 +166,13 @@ const RouteTable: React.FC<RouteTableProps> = ({
                         {route.endPoint}
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent >
+                    <TooltipContent>
                       <p>{route.endPoint}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </TableCell>
+              <TableCell className="py-4">{route.seat}</TableCell>
               <TableCell className="py-4">
                 {getStatusBadge(route.status)}
               </TableCell>
@@ -178,6 +182,7 @@ const RouteTable: React.FC<RouteTableProps> = ({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
+                          disabled={route.seat === 0}
                           variant="outline"
                           size="sm"
                           onClick={() => onViewPassengers(route.id)}
@@ -186,7 +191,7 @@ const RouteTable: React.FC<RouteTableProps> = ({
                           <Users className="h-4 w-4 text-[var(--primary)]" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent >
+                      <TooltipContent>
                         <p>Xem hành khách</p>
                       </TooltipContent>
                     </Tooltip>
@@ -196,6 +201,7 @@ const RouteTable: React.FC<RouteTableProps> = ({
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
+                            disabled={route.seat > 0}
                             variant="outline"
                             size="sm"
                             onClick={() => onEdit(route)}
@@ -204,7 +210,7 @@ const RouteTable: React.FC<RouteTableProps> = ({
                             <Pencil className="h-4 w-4 text-blue-600" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent >
+                        <TooltipContent>
                           <p>Chỉnh sửa tuyến đường</p>
                         </TooltipContent>
                       </Tooltip>
@@ -222,7 +228,7 @@ const RouteTable: React.FC<RouteTableProps> = ({
                           <FaRegClone className="h-4 w-4 text-green-600" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent >
+                      <TooltipContent>
                         <p>Tạo lại tuyến</p>
                       </TooltipContent>
                     </Tooltip>
@@ -232,6 +238,7 @@ const RouteTable: React.FC<RouteTableProps> = ({
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
+                            disabled={route.seat > 0}
                             variant="destructive"
                             size="sm"
                             onClick={() => onDelete(route.id)}

@@ -154,6 +154,7 @@ type MapRef = {
 }
 
 export default function RegistrationForm() {
+  // Kiểm tra và lấy thông tin vị trí người dùng từ UserLocationContext
   const userLocationContext = useContext(UserLocationContext)
 
   if (!userLocationContext) {
@@ -163,6 +164,7 @@ export default function RegistrationForm() {
   }
 
   const { userLocation } = userLocationContext
+  // Khởi tạo biểu mẫu với schema xác thực và giá trị mặc định
   const {
     register,
     handleSubmit,
@@ -186,7 +188,7 @@ export default function RegistrationForm() {
     },
   })
 
-  // State for autocomplete
+  // Khởi tạo state cho tự động hoàn thành điểm đi, điểm đến và điểm dừng
   const [departureQuery, setDepartureQuery] = useState('')
   const [destinationQuery, setDestinationQuery] = useState('')
   const [departureSuggestions, setDepartureSuggestions] = useState<
@@ -210,7 +212,7 @@ export default function RegistrationForm() {
   const [departureName, setDepartureName] = useState<string>('')
   const [destinationName, setDestinationName] = useState<string>('')
 
-  // State for waypoints
+  // Khởi tạo state cho các điểm dừng
   const [waypoints, setWaypoints] = useState<Waypoint[]>([])
   const [newWaypointQuery, setNewWaypointQuery] = useState('')
   const [newWaypointSuggestions, setNewWaypointSuggestions] = useState<
@@ -222,25 +224,25 @@ export default function RegistrationForm() {
     watch('departureDate')
   )
 
-  // State for map and routes
+  // Khởi tạo state cho bản đồ và tuyến đường
   const [route, setRoute] = useState<any[]>([])
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const mapRef = useRef<any>({ lastCoords: null })
 
-  // Ref for debounce timers
+  // Ref để quản lý bộ đếm thời gian debounce
   const departureTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const destinationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const waypointTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
 
-  // Track last departureDate to avoid overwriting manual edits
+  // Theo dõi ngày khởi hành cuối cùng để tránh ghi đè các chỉnh sửa thủ công
   const [lastDepartureDate, setLastDepartureDate] = useState<Date | undefined>(
     watch('departureDate')
   )
 
-  // Sync waypoint dates with departureDate, preserving manually edited dates
+  // Đồng bộ ngày của các điểm dừng với ngày khởi hành, giữ nguyên ngày chỉnh sửa thủ công
   useEffect(() => {
     const departureDate = watch('departureDate')
     if (
@@ -250,7 +252,7 @@ export default function RegistrationForm() {
     ) {
       setWaypoints((prevWaypoints) =>
         prevWaypoints.map((wp) => {
-          // Only update waypoints that haven't been manually edited
+          // Chỉ cập nhật các điểm dừng chưa được chỉnh sửa thủ công
           if (
             !wp.estimatedArrivalDate ||
             isSameDay(wp.estimatedArrivalDate, lastDepartureDate)
@@ -263,13 +265,15 @@ export default function RegistrationForm() {
       setNewWaypointDate(departureDate)
       setLastDepartureDate(departureDate)
     } else if (departureDate && !lastDepartureDate) {
-      // Initial sync for new waypoints
+      // Đồng bộ ban đầu cho các điểm dừng mới
       setNewWaypointDate(departureDate)
       setLastDepartureDate(departureDate)
     }
   }, [watch('departureDate')])
 
-  // Fetch autocomplete suggestions
+  // Lấy gợi ý tự động hoàn thành từ Nominatim API dựa trên đầu vào người dùng
+  // @param input - Chuỗi tìm kiếm
+  // @returns Promise trả về mảng các gợi ý với place_id, mô tả và tọa độ
   const fetchSuggestions = async (input: string): Promise<Suggestion[]> => {
     if (input.length < 2) {
       return []
@@ -299,12 +303,13 @@ export default function RegistrationForm() {
         },
       }))
     } catch (error) {
-      console.error('Error fetching suggestions from Nominatim:', error)
       return []
     }
   }
 
-  // Fetch routes from Mapbox Directions API
+  // Lấy tuyến đường lái xe từ Mapbox Directions API dựa trên tọa độ
+  // @param coords - Mảng tọa độ với kinh độ (lng) và vĩ độ (lat)
+  // Cập nhật trạng thái tuyến đường và điều chỉnh bản đồ để hiển thị
   const fetchRoute = async (coords: { lng: number; lat: number }[]) => {
     if (
       coords.length < 2 ||
@@ -380,7 +385,7 @@ export default function RegistrationForm() {
     }
   }
 
-  // Add new waypoint
+  // Khởi tạo thêm điểm dừng mới, kiểm tra giới hạn tối đa 23 điểm dừng
   const addWaypoint = () => {
     if (waypoints.length >= 23) {
       toast('Lỗi', {
@@ -393,7 +398,7 @@ export default function RegistrationForm() {
     setNewWaypointDate(watch('departureDate')) // Default to departure date
   }
 
-  // Cancel adding waypoint
+  // Hủy việc thêm điểm dừng mới, đặt lại trạng thái liên quan
   const cancelAddWaypoint = () => {
     setIsAddingWaypoint(false)
     setNewWaypointQuery('')
@@ -401,12 +406,14 @@ export default function RegistrationForm() {
     setNewWaypointDate(watch('departureDate'))
   }
 
-  // Remove waypoint
+  // Xóa một điểm dừng cụ thể khỏi danh sách theo ID
+  // @param id - Định danh duy nhất của điểm dừng
   const removeWaypoint = (id: string) => {
     setWaypoints(waypoints.filter((wp) => wp.id !== id))
   }
 
-  // Select waypoint from suggestions
+  // Thêm gợi ý được chọn làm điểm dừng mới sau khi xác thực ngày
+  // @param suggestion - Gợi ý địa điểm với mô tả và tọa độ
   const selectWaypoint = (suggestion: Suggestion) => {
     if (!newWaypointDate) {
       toast('Lỗi', {
@@ -428,7 +435,9 @@ export default function RegistrationForm() {
     setNewWaypointDate(watch('departureDate'))
   }
 
-  // Update waypoint date with debug logging
+  // Cập nhật thuộc tính của một điểm dừng (như ngày đến) với ghi log gỡ lỗi
+  // @param id - Định danh duy nhất của điểm dừng
+  // @param updates - Đối tượng chứa các thuộc tính cần cập nhật
   const updateWaypoint = (id: string, updates: Partial<Waypoint>) => {
     console.log(`Updating waypoint ${id} with:`, updates)
     setWaypoints(
@@ -436,7 +445,7 @@ export default function RegistrationForm() {
     )
   }
 
-  // Fetch suggestions for departure
+  // Lấy gợi ý tự động hoàn thành cho điểm đi
   useEffect(() => {
     if (departureTimeoutRef.current) {
       clearTimeout(departureTimeoutRef.current)
@@ -469,7 +478,7 @@ export default function RegistrationForm() {
     }
   }, [departureQuery])
 
-  // Fetch suggestions for destination
+  // Lấy gợi ý tự động hoàn thành cho điểm đến
   useEffect(() => {
     if (destinationTimeoutRef.current) {
       clearTimeout(destinationTimeoutRef.current)
@@ -502,7 +511,7 @@ export default function RegistrationForm() {
     }
   }, [destinationQuery])
 
-  // Fetch suggestions for new waypoint
+  // Lấy gợi ý tự động hoàn thành cho điểm dừng mới
   useEffect(() => {
     if (!newWaypointQuery || newWaypointQuery.length < 2) {
       setNewWaypointSuggestions([])
@@ -536,7 +545,7 @@ export default function RegistrationForm() {
     }
   }, [newWaypointQuery])
 
-  // Fetch route when coordinates change
+  // Cập nhật tuyến đường khi tọa độ điểm đi, điểm đến hoặc điểm dừng thay đổi
   useEffect(() => {
     if (departureCoords && destinationCoords) {
       const coords = [
@@ -557,6 +566,9 @@ export default function RegistrationForm() {
     }
   }, [departureCoords, destinationCoords, waypoints])
 
+  // Xử lý gửi biểu mẫu tuyến đường tới API
+  // @param data - Dữ liệu biểu mẫu đã được xác thực
+  // Xây dựng dữ liệu tuyến đường, xác thực ngày và xử lý phản hồi
   const onSubmit = async (data: RouteFormData) => {
     if (
       route.length === 0 ||
@@ -584,31 +596,21 @@ export default function RegistrationForm() {
         throw new Error('Dữ liệu tuyến đường không đầy đủ')
       }
 
-      // Construct startTime
+      // Xây dựng startTime
       const startDate = new Date(data.departureDate)
       const [startHours, startMinutes] = data.departureTime.split(':')
       startDate.setHours(parseInt(startHours), parseInt(startMinutes), 0, 0)
 
-      // Construct endTime
+      // Xây dựng endTime
       const endDate = new Date(data.endDate)
       const [endHours, endMinutes] = data.endTime.split(':')
       endDate.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0)
 
-      // Normalize dates to start of day for comparison
+      // Chuẩn hóa ngày để so sánh
       const normalizedStartDate = startOfDay(new Date(data.departureDate))
       const normalizedEndDate = startOfDay(new Date(data.endDate))
 
-      // Debug: Log input dates
-      console.log('Form Input Dates:', {
-        departureDate: data.departureDate.toISOString(),
-        departureTime: data.departureTime,
-        endDate: data.endDate.toISOString(),
-        endTime: data.endTime,
-        normalizedStartDate: normalizedStartDate.toISOString(),
-        normalizedEndDate: normalizedEndDate.toISOString(),
-      })
-
-      // Validate waypoint dates
+      // Xác thực ngày của điểm dừng
       for (let i = 0; i < waypoints.length; i++) {
         const wp = waypoints[i]
         if (!wp.estimatedArrivalDate) {
@@ -648,7 +650,7 @@ export default function RegistrationForm() {
         }
       }
 
-      // Construct waypoints from API response
+      // Xây dựng danh sách điểm dừng từ phản hồi API
       const apiWaypoints = selectedRoute.waypoints || []
       let cumulativeDistance = 0
       const routeWaypoints = [
@@ -694,9 +696,6 @@ export default function RegistrationForm() {
         },
       ]
 
-      // Debug: Log routeWaypoints to verify estimatedArrivalTime
-      console.log('Route Waypoints:', JSON.stringify(routeWaypoints, null, 2))
-
       const routeData = {
         name: `${departureName || data.departurePoint} - ${
           destinationName || data.destination
@@ -721,8 +720,6 @@ export default function RegistrationForm() {
         isNegotiable: data.isNegotiable,
       }
 
-      console.log('Route Data Sent to API:', JSON.stringify(routeData, null, 2))
-
       await createRouteMutationFn(routeData)
 
       toast('Thành công', {
@@ -734,6 +731,7 @@ export default function RegistrationForm() {
         style: { background: '#00fd15', color: '#fff' },
       })
 
+      // Đặt lại biểu mẫu và trạng thái sau khi gửi thành công
       reset({
         departurePoint: '',
         destination: '',
@@ -763,8 +761,7 @@ export default function RegistrationForm() {
     } catch (error: any) {
       console.error('Submit Error:', error)
       toast('Lỗi', {
-        description:
-          error.message || 'Không thể đăng ký tuyến đường. Vui lòng thử lại!',
+        description: 'Không thể đăng ký tuyến đường. Vui lòng thử lại!',
         style: { background: '#ff3333', color: '#fff' },
       })
     } finally {

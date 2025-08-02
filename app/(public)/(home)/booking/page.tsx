@@ -1,15 +1,9 @@
 'use client'
-
 import {
   ChevronRight,
   Home,
   Filter,
   Star,
-  Users,
-  Clock,
-  Move,
-  Calendar,
-  MapPin,
 } from 'lucide-react'
 import Link from 'next/link'
 import TripCard from '@/components/card/TripCard'
@@ -24,12 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
 import { UserLocationContext } from '@/hooks/use-user-location-context'
 import { IUserLocation } from '@/types/user-location'
-import { point, lineString, pointToLineDistance } from '@turf/turf'
 
 interface Trip {
   _id: string
@@ -79,7 +70,6 @@ interface Trip {
 export default function BookingPage() {
   const [trips, setTrips] = useState<Trip[]>([])
   const [sortBy, setSortBy] = useState<string>('price-asc')
-  const [priceRange, setPriceRange] = useState<number[]>([0, 5000000])
   const [minSeats, setMinSeats] = useState<number>(1)
   const [minRating, setMinRating] = useState<number>(0)
   const [noPassengers, setNoPassengers] = useState<boolean>(false)
@@ -206,6 +196,8 @@ export default function BookingPage() {
       .filter((trip) => !noPassengers || trip.passengerCount === 0)
 
     switch (sortBy) {
+      case 'all':
+        return filtered
       case 'price-asc':
         return filtered.sort((a, b) => a.price - b.price)
       case 'price-desc':
@@ -225,7 +217,7 @@ export default function BookingPage() {
       default:
         return filtered
     }
-  }, [trips, priceRange, minRating, minSeats, noPassengers, sortBy, departure])
+  }, [trips, minRating, minSeats, noPassengers, sortBy, departure])
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -634,6 +626,7 @@ export default function BookingPage() {
                         color: 'var(--popoverForeground)',
                       }}
                     >
+                      <SelectItem value="all">Tất cả</SelectItem>
                       <SelectItem value="price-asc">
                         Giá: Thấp đến cao
                       </SelectItem>

@@ -205,9 +205,7 @@ export default function TripCard(trip: TripCardProps) {
           highQuality: false,
         })
       }
-    } catch (err) {
-      console.error('Error simplifying line', err)
-    }
+    } catch (err) {}
     return null
   }, [trip.path?.coordinates, trip._id])
 
@@ -226,7 +224,6 @@ export default function TripCard(trip: TripCardProps) {
       }
       return null
     } catch (error) {
-      console.error('Error calculating distance to route', error)
       return null
     }
   }, [departure.pickupCoords, optimizedLine])
@@ -246,12 +243,10 @@ export default function TripCard(trip: TripCardProps) {
       }
       return null
     } catch (error) {
-      console.error('Error calculating distance to route', error)
       return null
     }
   }, [destination.dropoffCoords, optimizedLine])
 
-  // Filter intermediate waypoints (exclude first and last)
   const intermediateWaypoints = trip.waypoints.filter(
     (_, index) => index !== 0 && index !== trip.waypoints.length - 1
   )
@@ -595,7 +590,7 @@ export default function TripCard(trip: TripCardProps) {
                                 </div>
                               </Marker>
                             )}
-                          {destination.pickupCoords &&
+                          {destination.dropoffCoords &&
                             validatePickupCoords(destination.dropoffCoords) && (
                               <Marker
                                 longitude={destination.dropoffCoords.lng}

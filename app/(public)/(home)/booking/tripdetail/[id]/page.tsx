@@ -40,6 +40,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { RouteRequestDialog } from '@/components/dialog/RequestRouteDialog'
 import { useAuthContext } from '@/context/auth-provider'
+import { useMemo } from 'react'
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
 
@@ -49,7 +50,10 @@ const TripDetails = () => {
   const tripId = params?.id as string
   const { user } = useAuthContext()
   const userId = user?._id
-
+  const localstorage = JSON.parse(localStorage.getItem('searchTripForm') || '')
+  const departure = localstorage
+  const destination = localstorage
+  
   const formatTime = (isoString?: string): string => {
     if (!isoString) {
       console.warn('formatTime: isoString is undefined or null')
@@ -74,12 +78,10 @@ const TripDetails = () => {
   }
   const formatDate = (isoString?: string): string => {
     if (!isoString) {
-      console.warn('formatTime: isoString is undefined or null')
       return 'N/A'
     }
-      const date = new Date(isoString)
-      return format(date, 'dd/MM/yyyy')
-    
+    const date = new Date(isoString)
+    return format(date, 'dd/MM/yyyy')
   }
   const calculateWaypointTime = (
     startTime: string | undefined,
@@ -103,7 +105,6 @@ const TripDetails = () => {
       const arrivalDate = addSeconds(startDate, Math.round(travelTimeSeconds))
       return formatTime(arrivalDate.toISOString())
     } catch (error) {
-      console.error('calculateWaypointTime: Error calculating time:', error)
       return 'N/A'
     }
   }
@@ -248,7 +249,7 @@ const TripDetails = () => {
       }).format(trip.price)
     : 'Chưa cung cấp'
   const passengers = trip.passengerCount
-
+  const seatbook = JSON.parse(localStorage.getItem('searchTripForm') || '')
   // Map setup
   if (!trip.waypoints || trip.waypoints.length === 0) {
     console.error('Invalid trip data: missing waypoints', trip)
@@ -452,7 +453,30 @@ const TripDetails = () => {
                               </div>
                             </div>
                           </Marker>
-
+                          {departure.pickupCoords && (
+                            <Marker
+                              longitude={departure.pickupCoords.lng}
+                              latitude={departure.pickupCoords.lat}
+                              anchor="bottom"
+                            >
+                              <div className="relative">
+                                <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-md"></div>
+                                <div className="absolute inset-0 animate-ping bg-blue-500 rounded-full opacity-75"></div>
+                              </div>
+                            </Marker>
+                          )}
+                          {destination.dropoffCoords && (
+                            <Marker
+                              longitude={destination.dropoffCoords.lng}
+                              latitude={destination.dropoffCoords.lat}
+                              anchor="bottom"
+                            >
+                              <div className="relative">
+                                <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-md"></div>
+                                <div className="absolute inset-0 animate-ping bg-blue-500 rounded-full opacity-75"></div>
+                              </div>
+                            </Marker>
+                          )}
                           {/* Intermediate Waypoints */}
                           {safeWaypoints
                             .filter((wp: any, index: number) => {
@@ -662,7 +686,7 @@ const TripDetails = () => {
               </div>
               <div>
                 <p className="font-medium text-[var(--muted-foreground)] text-sm">
-                  GIÁ CÓ THƯƠNG LƯỢNG
+                  THƯƠNG LƯỢNG
                 </p>
                 <p className="font-semibold text-[var(--foreground)]">
                   {isNegotiable ? 'Có' : 'Không'}
@@ -709,12 +733,7 @@ const TripDetails = () => {
                 <MessageCircle className="w-4 h-4" />
                 Xem nhận xét
               </Link>
-              <div className="flex items-center gap-1 bg-green-500/20 dark:bg-[var(--chart-1)]/20 px-3 py-1 rounded-full">
-                <Shield className="w-4 h-4 text-green-500 dark:text-[var(--chart-1)]" />
-                <span className="text-sm font-medium text-green-500 dark:text-[var(--chart-1)]">
-                  Đã xác minh
-                </span>
-              </div>
+              
             </div>
           </div>
           <div className="flex flex-col md:flex-row gap-6">
@@ -900,7 +919,7 @@ const TripDetails = () => {
         ) : (
           <RouteRequestDialog
             routeId={tripId}
-            seats={passengers}
+            seats={seatbook.passengers}
             maxseat={trip.seatsAvailable}
           />
         )}
